@@ -183,10 +183,8 @@ export const Graph = ({ dot }) => {
 
     const svg = d3.select(ref.current).select("svg");
 
-    // 現在のビューポート中心を取得
-    const svgBounds = svg.node().getBoundingClientRect();
-    const centerX = svgBounds.width / 2;
-    const centerY = svgBounds.height / 2;
+    const centerX = svgGetBBox.width / 2;
+    const centerY = svgGetBBox.height / 2;
 
     // D3.jsのズーム機能を使用して、中心点を指定してズーム
     zoomRef.current.scaleBy(svg.transition().duration(300), 1.3, [
@@ -200,10 +198,8 @@ export const Graph = ({ dot }) => {
 
     const svg = d3.select(ref.current).select("svg");
 
-    // 現在のビューポート中心を取得
-    const svgBounds = svg.node().getBoundingClientRect();
-    const centerX = svgBounds.width / 2;
-    const centerY = svgBounds.height / 2;
+    const centerX = svgGetBBox.width / 2;
+    const centerY = svgGetBBox.height / 2;
 
     // D3.jsのズーム機能を使用して、中心点を指定してズーム
     zoomRef.current.scaleBy(svg.transition().duration(300), 0.7, [
