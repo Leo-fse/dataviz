@@ -10,9 +10,18 @@ import {
   InputLabel,
   Button,
   Typography,
+  IconButton,
+  Box,
 } from "@mui/material";
 import Paper from "@mui/material/Paper";
+import AddIcon from "@mui/icons-material/Add";
+import RemoveIcon from "@mui/icons-material/Remove";
+
+// DOTグラフの定義を修正 - rankdir="LR"を追加して横向きに
 const dot = `digraph {
+  // 左から右へ描画するための設定
+  rankdir="LR";
+  
   A [id="A"];
   B [id="B"];
   C [id="C"];
@@ -20,12 +29,23 @@ const dot = `digraph {
   E [id="E"];
   F [id="F"];
   G [id="G"];
+  H [id="H"];
+  I [id="I"];
+  N [id="N"];
+  M [id="M"];
   A -> B;
   A -> C;
   B -> D;
+  D -> G;
   C -> E;
   D -> F;
-  E -> G;
+  C -> H;
+  H -> I;
+  I -> N;
+  N -> A;
+  A -> M;
+  M -> I;
+  
 }`;
 
 export const Graph = () => {
@@ -37,6 +57,7 @@ export const Graph = () => {
   const zoomRef = useRef(null); // D3ズームインスタンス
   const blinkIntervalRef = useRef(null); // 点滅管理用
   const blinkTimeoutRef = useRef(null); // **点滅終了用タイマー**
+  const [currentZoom, setCurrentZoom] = useState(1); // 現在のズームレベル
 
   useEffect(() => {
     if (ref.current) {
@@ -73,6 +94,7 @@ export const Graph = () => {
         // ズーム設定
         const zoom = d3.zoom().on("zoom", (event) => {
           svg.select("g").attr("transform", event.transform);
+          setCurrentZoom(event.transform.k); // ズームレベルを更新
         });
         svg.call(zoom);
         zoomRef.current = zoom;
@@ -184,33 +206,103 @@ export const Graph = () => {
     setSelectedNode("");
   };
 
+  // 拡大ボタンのハンドラー
+  const handleZoomIn = () => {
+    if (!zoomRef.current) return;
+
+    const svg = d3.select(ref.current).select("svg");
+    const newZoom = currentZoom * 1.3; // 30%拡大
+
+    svg
+      .transition()
+      .duration(300)
+      .call(
+        zoomRef.current.transform,
+        d3.zoomIdentity
+          .translate(
+            d3.zoomTransform(svg.node()).x,
+            d3.zoomTransform(svg.node()).y
+          )
+          .scale(newZoom)
+      );
+  };
+
+  // 縮小ボタンのハンドラー
+  const handleZoomOut = () => {
+    if (!zoomRef.current) return;
+
+    const svg = d3.select(ref.current).select("svg");
+    const newZoom = currentZoom * 0.7; // 30%縮小
+
+    svg
+      .transition()
+      .duration(300)
+      .call(
+        zoomRef.current.transform,
+        d3.zoomIdentity
+          .translate(
+            d3.zoomTransform(svg.node()).x,
+            d3.zoomTransform(svg.node()).y
+          )
+          .scale(newZoom)
+      );
+  };
+
   return (
     <div>
-      <FormControl style={{ minWidth: 200, marginBottom: 10 }}>
-        <InputLabel>ノードを選択</InputLabel>
-        <Select
-          value={selectedNode}
-          onChange={(e) => {
-            setSelectedNode(e.target.value);
-            zoomToNode(e.target.value);
+      <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+        <FormControl style={{ minWidth: 200 }}>
+          <InputLabel>ノードを選択</InputLabel>
+          <Select
+            value={selectedNode}
+            onChange={(e) => {
+              setSelectedNode(e.target.value);
+              zoomToNode(e.target.value);
+            }}
+          >
+            {nodes.map((node) => (
+              <MenuItem key={node} value={node}>
+                {node}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <Button
+          variant="contained"
+          color="secondary"
+          onClick={handleReset}
+          style={{ marginLeft: 10 }}
+        >
+          リセット
+        </Button>
+      </Box>
+
+      {/* グラフコンテナ - 相対配置 */}
+      <Box sx={{ position: "relative" }}>
+        <div ref={ref} style={{ width: "100%" }} />
+
+        {/* Google Map風のズームコントロール */}
+        <Box
+          sx={{
+            position: "absolute",
+            top: 10,
+            right: 10,
+            backgroundColor: "white",
+            borderRadius: "4px",
+            boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
+            display: "flex",
+            flexDirection: "column",
           }}
         >
-          {nodes.map((node) => (
-            <MenuItem key={node} value={node}>
-              {node}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-      <Button
-        variant="contained"
-        color="secondary"
-        onClick={handleReset}
-        style={{ marginLeft: 10 }}
-      >
-        リセット
-      </Button>
-      <div ref={ref} style={{}} />
+          <IconButton onClick={handleZoomIn} size="small">
+            <AddIcon />
+          </IconButton>
+          <Box sx={{ height: "1px", backgroundColor: "#e0e0e0" }} />
+          <IconButton onClick={handleZoomOut} size="small">
+            <RemoveIcon />
+          </IconButton>
+        </Box>
+      </Box>
     </div>
   );
 };
