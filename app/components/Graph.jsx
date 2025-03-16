@@ -21,6 +21,13 @@ import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
 import CloseIcon from "@mui/icons-material/Close";
 
+// ノードクリック時の処理を分離
+const handleNodeClick = (nodeId) => {
+  if (!nodeId) return;
+
+  showNodeDetails(nodeId);
+  zoomToNode(nodeId);
+};
 export const Graph = ({ dot }) => {
   const ref = useRef(null);
   const [selectedNode, setSelectedNode] = useState(""); // 選択されたノード
@@ -97,10 +104,10 @@ export const Graph = ({ dot }) => {
             zoomToNode(nodeId);
           });
 
-        // SVGの背景クリックで詳細を閉じる
-        svg.on("click", function () {
-          setNodeDetails(null);
-        });
+        // SVGの背景クリックで詳細を閉じる処理は不要なので削除
+        // svg.on("click", function() {
+        //   setNodeDetails(null);
+        // });
 
         // 🔥 状態が更新された後にリセットを適用する
         setTimeout(handleReset, 300);
@@ -121,7 +128,10 @@ export const Graph = ({ dot }) => {
       const updatedPanels = [...nodeDetailsPanels];
       const panel = { ...updatedPanels[existingPanelIndex] };
       updatedPanels.splice(existingPanelIndex, 1);
-      updatedPanels.push(panel);
+      updatedPanels.push({
+        ...panel,
+        zIndex: Math.max(...nodeDetailsPanels.map((p) => p.zIndex), 0) + 1,
+      });
       setNodeDetailsPanels(updatedPanels);
       return;
     }
@@ -132,10 +142,13 @@ export const Graph = ({ dot }) => {
       title: `ノード ${nodeId}`,
       description: `これはノード ${nodeId} の詳細情報です。必要に応じてさらに情報を追加できます。`,
       connections: getNodeConnections(nodeId),
-      position: { x: 10, y: 10 },
+      position: {
+        x: 10 + nodeDetailsPanels.length * 20,
+        y: 10 + nodeDetailsPanels.length * 20,
+      },
       size: { width: 300, height: "auto" },
       minimized: false,
-      zIndex: nodeDetailsPanels.length + 1,
+      zIndex: Math.max(...nodeDetailsPanels.map((p) => p.zIndex), 0) + 1,
     };
 
     // 新しいパネルを追加
@@ -426,9 +439,10 @@ export const Graph = ({ dot }) => {
           <Select
             value={selectedNode}
             onChange={(e) => {
-              setSelectedNode(e.target.value);
-              zoomToNode(e.target.value);
-              showNodeDetails(e.target.value);
+              const nodeId = e.target.value;
+              setSelectedNode(nodeId);
+              zoomToNode(nodeId);
+              showNodeDetails(nodeId);
             }}
           >
             {nodes.map((node) => (
