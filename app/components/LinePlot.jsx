@@ -376,12 +376,6 @@ export const MultiLinePlot = ({ series }) => {
 
   return (
     <div ref={containerRef} style={{ position: "relative", width: "100%" }}>
-      <Typography
-        variant="h4"
-        style={{ fontSize: `${dimensions.fontSize * 1.5}px` }}
-      >
-        Multi-Series Line Chart
-      </Typography>
       <svg
         ref={svgRef}
         width="100%"

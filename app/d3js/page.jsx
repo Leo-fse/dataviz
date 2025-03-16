@@ -60,9 +60,6 @@ const seriesData = [
 export default function d3js() {
   return (
     <div>
-      <Typography variant="h3" gutterBottom>
-        D3.js
-      </Typography>
       <MultiLinePlot series={seriesData} />
     </div>
   );
