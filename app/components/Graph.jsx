@@ -20,7 +20,29 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
 import CloseIcon from "@mui/icons-material/Close";
+// パネル作成時に必ず最前面に来るようにするためのzIndexマネージャー
+const zIndexManagerRef = useRef({
+  currentMaxZIndex: 0,
+  getNextZIndex: function () {
+    this.currentMaxZIndex += 1;
+    return this.currentMaxZIndex;
+  },
+}); // パネルをアクティブ化するためのヘルパー関数（最小化されている場合は最大化する）
+const activatePanel = (panelId) => {
+  console.log(`Activating panel: ${panelId}`);
 
+  // パネルを最前面に
+  handleBringToFront(panelId);
+
+  // 最小化されている場合は最大化する
+  setNodeDetailsPanels((prevPanels) =>
+    prevPanels.map((panel) =>
+      panel.id === panelId && panel.minimized
+        ? { ...panel, minimized: false }
+        : panel
+    )
+  );
+};
 // グローバルスコープにハンドラーを定義
 const handleNodeClick = (event, nodeId, createPanelFunc, zoomFunc) => {
   event.stopPropagation();
@@ -126,25 +148,47 @@ export const Graph = ({ dot }) => {
   // パネル位置のパターンをコンポーネント内変数として定義
   const offsetPattern = [
     { x: 20, y: 20 }, // 1つ目のパネル
-    { x: 40, y: 70 }, // 2つ目のパネル
-    { x: 60, y: 120 }, // 3つ目のパネル
-    { x: 80, y: 170 }, // 4つ目のパネル
-    { x: 100, y: 220 }, // 5つ目のパネル
-    { x: 120, y: 270 }, // 6つ目のパネル
-    { x: 140, y: 320 }, // 7つ目のパネル
-    { x: 160, y: 370 }, // 8つ目のパネル
-    { x: 180, y: 420 }, // 9つ目のパネル
-    { x: 200, y: 470 }, // 10つ目のパネル
+    { x: 70, y: 40 }, // 2つ目のパネル
+    { x: 120, y: 60 }, // 3つ目のパネル
+    { x: 170, y: 80 }, // 4つ目のパネル
+    { x: 200, y: 120 }, // 5つ目のパネル
+    { x: 180, y: 180 }, // 6つ目のパネル
+    { x: 130, y: 200 }, // 7つ目のパネル
+    { x: 80, y: 220 }, // 8つ目のパネル
+    { x: 40, y: 180 }, // 9つ目のパネル
+    { x: 30, y: 120 }, // 10つ目のパネル
   ];
 
   // 現在のパネル位置のインデックスを追跡するRef
   const currentPanelIndexRef = useRef(0);
+
+  // パネル作成時に必ず最前面に来るようにするためのzIndexマネージャー
+  const zIndexManagerRef = useRef({
+    currentMaxZIndex: 0,
+    getNextZIndex: function () {
+      this.currentMaxZIndex += 1;
+      return this.currentMaxZIndex;
+    },
+  });
 
   // 新しいノード詳細パネルを作成する関数
   const createNewNodeDetailsPanel = (nodeId) => {
     if (!nodeId) return;
 
     console.log("Creating new panel for node:", nodeId);
+
+    // 既に同じノードのパネルが開いているか確認
+    const existingPanelIndex = nodeDetailsPanels.findIndex(
+      (panel) => panel.nodeId === nodeId
+    );
+
+    // 既存のパネルがある場合は、そのパネルをアクティブにする
+    if (existingPanelIndex !== -1) {
+      console.log(`Panel for node ${nodeId} already exists. Activating it.`);
+      // 既存のパネルをアクティブ化
+      activatePanel(nodeDetailsPanels[existingPanelIndex].id);
+      return;
+    }
 
     // パネル位置は単純に順番に使用し、一巡したら最初に戻る
     const positionIndex = currentPanelIndexRef.current;
@@ -160,12 +204,9 @@ export const Graph = ({ dot }) => {
     currentPanelIndexRef.current =
       (currentPanelIndexRef.current + 1) % offsetPattern.length;
 
-    // 新しいパネルのzIndex計算
-    const currentPanelZIndices = nodeDetailsPanels.map((p) => p.zIndex || 0);
-    const newZIndex =
-      currentPanelZIndices.length > 0
-        ? Math.max(...currentPanelZIndices) + 1
-        : 1;
+    // 常に最大のzIndexを使用する
+    const newZIndex = zIndexManagerRef.current.getNextZIndex();
+    console.log(`Using z-index: ${newZIndex}`);
 
     // ダミーのノード詳細情報
     const nodeInfo = {
@@ -309,6 +350,8 @@ export const Graph = ({ dot }) => {
     setNodeDetailsPanels([]);
     // パネル位置のインデックスをリセット
     currentPanelIndexRef.current = 0;
+    // z-indexもリセット
+    zIndexManagerRef.current.currentMaxZIndex = 0;
   };
 
   const handleZoomIn = () => {
@@ -368,14 +411,15 @@ export const Graph = ({ dot }) => {
     const panel = nodeDetailsPanels.find((p) => p.id === panelId);
     if (!panel) return;
 
-    const maxZIndex = Math.max(
-      ...nodeDetailsPanels.map((p) => p.zIndex || 0),
-      0
+    // 常に新しいzIndexを取得
+    const newZIndex = zIndexManagerRef.current.getNextZIndex();
+    console.log(
+      `Bringing panel to front with z-index: ${newZIndex} - Panel ID: ${panelId}`
     );
 
     setNodeDetailsPanels(
       nodeDetailsPanels.map((p) =>
-        p.id === panelId ? { ...p, zIndex: maxZIndex + 1 } : p
+        p.id === panelId ? { ...p, zIndex: newZIndex } : p
       )
     );
   };
@@ -546,7 +590,12 @@ export const Graph = ({ dot }) => {
                 borderBottom: "1px solid rgba(0, 0, 0, 0.12)",
                 position: "relative",
               }}
-              onMouseDown={(e) => handlePanelDragStart(e, panel.id)}
+              onMouseDown={(e) => {
+                // ヘッダークリックでアクティブ化（最前面に表示）
+                activatePanel(panel.id);
+                // ドラッグ開始
+                handlePanelDragStart(e, panel.id);
+              }}
             >
               {/* ドラッグハンドルアイコン */}
               <Box
