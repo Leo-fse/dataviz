@@ -178,46 +178,38 @@ export const Graph = ({ dot }) => {
     setSelectedNode("");
   };
 
-  // 拡大ボタンのハンドラー
   const handleZoomIn = () => {
     if (!zoomRef.current) return;
 
     const svg = d3.select(ref.current).select("svg");
-    const newZoom = currentZoom * 1.3; // 30%拡大
 
-    svg
-      .transition()
-      .duration(300)
-      .call(
-        zoomRef.current.transform,
-        d3.zoomIdentity
-          .translate(
-            d3.zoomTransform(svg.node()).x,
-            d3.zoomTransform(svg.node()).y
-          )
-          .scale(newZoom)
-      );
+    // 現在のビューポート中心を取得
+    const svgBounds = svg.node().getBoundingClientRect();
+    const centerX = svgBounds.width / 2;
+    const centerY = svgBounds.height / 2;
+
+    // D3.jsのズーム機能を使用して、中心点を指定してズーム
+    zoomRef.current.scaleBy(svg.transition().duration(300), 1.3, [
+      centerX,
+      centerY,
+    ]);
   };
 
-  // 縮小ボタンのハンドラー
   const handleZoomOut = () => {
     if (!zoomRef.current) return;
 
     const svg = d3.select(ref.current).select("svg");
-    const newZoom = currentZoom * 0.7; // 30%縮小
 
-    svg
-      .transition()
-      .duration(300)
-      .call(
-        zoomRef.current.transform,
-        d3.zoomIdentity
-          .translate(
-            d3.zoomTransform(svg.node()).x,
-            d3.zoomTransform(svg.node()).y
-          )
-          .scale(newZoom)
-      );
+    // 現在のビューポート中心を取得
+    const svgBounds = svg.node().getBoundingClientRect();
+    const centerX = svgBounds.width / 2;
+    const centerY = svgBounds.height / 2;
+
+    // D3.jsのズーム機能を使用して、中心点を指定してズーム
+    zoomRef.current.scaleBy(svg.transition().duration(300), 0.7, [
+      centerX,
+      centerY,
+    ]);
   };
 
   return (
