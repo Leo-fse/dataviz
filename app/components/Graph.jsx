@@ -17,38 +17,7 @@ import Paper from "@mui/material/Paper";
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
 
-// DOTグラフの定義を修正 - rankdir="LR"を追加して横向きに
-const dot = `digraph {
-  // 左から右へ描画するための設定
-  rankdir="LR";
-  
-  A [id="A"];
-  B [id="B"];
-  C [id="C"];
-  D [id="D"];
-  E [id="E"];
-  F [id="F"];
-  G [id="G"];
-  H [id="H"];
-  I [id="I"];
-  N [id="N"];
-  M [id="M"];
-  A -> B;
-  A -> C;
-  B -> D;
-  D -> G;
-  C -> E;
-  D -> F;
-  C -> H;
-  H -> I;
-  I -> N;
-  N -> A;
-  A -> M;
-  M -> I;
-  
-}`;
-
-export const Graph = () => {
+export const Graph = ({ dot }) => {
   const ref = useRef(null);
   const [selectedNode, setSelectedNode] = useState(""); // 選択されたノード
   const [nodes, setNodes] = useState([]); // ノード一覧
@@ -79,7 +48,10 @@ export const Graph = () => {
           .nodes()
           .map((node) => d3.select(node).attr("id"))
           .filter((id) => id !== null);
-        setNodes([...new Set(nodeNames)]);
+
+        // アルファベット順にソート
+        const uniqueNodeNames = [...new Set(nodeNames)].sort();
+        setNodes(uniqueNodeNames);
 
         // SVGのサイズを取得
         const svgBox = svg.node().getBBox();
