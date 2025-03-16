@@ -12,10 +12,14 @@ import {
   Typography,
   IconButton,
   Box,
+  Paper,
+  Card,
+  CardContent,
+  CardHeader,
 } from "@mui/material";
-import Paper from "@mui/material/Paper";
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
+import CloseIcon from "@mui/icons-material/Close";
 
 export const Graph = ({ dot }) => {
   const ref = useRef(null);
@@ -27,6 +31,18 @@ export const Graph = ({ dot }) => {
   const blinkIntervalRef = useRef(null); // 点滅管理用
   const blinkTimeoutRef = useRef(null); // **点滅終了用タイマー**
   const [currentZoom, setCurrentZoom] = useState(1); // 現在のズームレベル
+  // ノードの詳細情報を保持するための新しい状態
+  const [nodeDetailsPanels, setNodeDetailsPanels] = useState([]); // 複数パネル対応
+  // ドラッグとリサイズのための状態
+  const [dragState, setDragState] = useState({
+    isPanelDragging: false,
+    isResizing: false,
+    activePanel: null,
+    startX: 0,
+    startY: 0,
+    startWidth: 0,
+    startHeight: 0,
+  });
 
   useEffect(() => {
     if (ref.current) {
@@ -71,11 +87,71 @@ export const Graph = ({ dot }) => {
         svg.call(zoom);
         zoomRef.current = zoom;
 
+        // ノードにクリックイベントを追加
+        d3.select(ref.current)
+          .selectAll("g.node")
+          .on("click", function (event) {
+            event.stopPropagation(); // イベントの伝播を停止
+            const nodeId = d3.select(this).attr("id");
+            showNodeDetails(nodeId);
+            zoomToNode(nodeId);
+          });
+
+        // SVGの背景クリックで詳細を閉じる
+        svg.on("click", function () {
+          setNodeDetails(null);
+        });
+
         // 🔥 状態が更新された後にリセットを適用する
         setTimeout(handleReset, 300);
       });
     }
   }, []);
+
+  // ノードの詳細情報を表示する関数
+  const showNodeDetails = (nodeId) => {
+    if (!nodeId) return;
+
+    // 既にそのノードのパネルが開いていればフォーカスするだけ
+    const existingPanelIndex = nodeDetailsPanels.findIndex(
+      (panel) => panel.id === nodeId
+    );
+    if (existingPanelIndex >= 0) {
+      // 既存のパネルを最前面に持ってくる処理
+      const updatedPanels = [...nodeDetailsPanels];
+      const panel = { ...updatedPanels[existingPanelIndex] };
+      updatedPanels.splice(existingPanelIndex, 1);
+      updatedPanels.push(panel);
+      setNodeDetailsPanels(updatedPanels);
+      return;
+    }
+
+    // ダミーのノード詳細情報
+    const nodeInfo = {
+      id: nodeId,
+      title: `ノード ${nodeId}`,
+      description: `これはノード ${nodeId} の詳細情報です。必要に応じてさらに情報を追加できます。`,
+      connections: getNodeConnections(nodeId),
+      position: { x: 10, y: 10 },
+      size: { width: 300, height: "auto" },
+      minimized: false,
+      zIndex: nodeDetailsPanels.length + 1,
+    };
+
+    // 新しいパネルを追加
+    setNodeDetailsPanels([...nodeDetailsPanels, nodeInfo]);
+    setSelectedNode(nodeId);
+  };
+
+  // ノードの接続先を取得する関数（dotの解析から実装可能）
+  const getNodeConnections = (nodeId) => {
+    // この実装はシンプルな例です。実際のdotデータからパースするにはより複雑なロジックが必要かもしれません。
+    // ここではダミーデータを返しています
+    return [
+      { to: "接続先ノード1", type: "依存関係" },
+      { to: "接続先ノード2", type: "参照" },
+    ];
+  };
 
   const zoomToNode = (nodeId) => {
     if (!svgGetBBox) return;
@@ -176,6 +252,8 @@ export const Graph = ({ dot }) => {
       );
 
     setSelectedNode("");
+    // 全パネルを閉じる
+    setNodeDetailsPanels([]);
   };
 
   const handleZoomIn = () => {
@@ -208,6 +286,138 @@ export const Graph = ({ dot }) => {
     ]);
   };
 
+  // パネルを閉じる
+  const handleClosePanel = (panelId) => {
+    setNodeDetailsPanels(
+      nodeDetailsPanels.filter((panel) => panel.id !== panelId)
+    );
+  };
+
+  // パネルを最小化/最大化
+  const handleToggleMinimize = (panelId) => {
+    setNodeDetailsPanels(
+      nodeDetailsPanels.map((panel) =>
+        panel.id === panelId ? { ...panel, minimized: !panel.minimized } : panel
+      )
+    );
+  };
+
+  // パネルを最前面に
+  const handleBringToFront = (panelId) => {
+    const panel = nodeDetailsPanels.find((p) => p.id === panelId);
+    if (!panel) return;
+
+    const maxZIndex = Math.max(...nodeDetailsPanels.map((p) => p.zIndex));
+
+    setNodeDetailsPanels(
+      nodeDetailsPanels.map((p) =>
+        p.id === panelId ? { ...p, zIndex: maxZIndex + 1 } : p
+      )
+    );
+  };
+
+  // ドラッグ開始時の処理
+  const handlePanelDragStart = (e, panelId) => {
+    e.preventDefault();
+    const panel = nodeDetailsPanels.find((p) => p.id === panelId);
+    if (!panel) return;
+
+    // このパネルを最前面に
+    handleBringToFront(panelId);
+
+    setDragState({
+      ...dragState,
+      isPanelDragging: true,
+      activePanel: panelId,
+      startX: e.clientX - panel.position.x,
+      startY: e.clientY - panel.position.y,
+    });
+  };
+
+  // リサイズ開始時の処理
+  const handleResizeStart = (e, panelId) => {
+    e.preventDefault();
+    const panel = nodeDetailsPanels.find((p) => p.id === panelId);
+    if (!panel) return;
+
+    // このパネルを最前面に
+    handleBringToFront(panelId);
+
+    setDragState({
+      ...dragState,
+      isResizing: true,
+      activePanel: panelId,
+      startX: e.clientX,
+      startY: e.clientY,
+      startWidth: panel.size.width,
+      startHeight:
+        typeof panel.size.height === "number" ? panel.size.height : 200,
+    });
+  };
+
+  // マウス移動のハンドリング（ドラッグとリサイズ）
+  const handleMouseMove = (e) => {
+    // ドラッグ中
+    if (dragState.isPanelDragging && dragState.activePanel) {
+      const panelId = dragState.activePanel;
+      const newX = e.clientX - dragState.startX;
+      const newY = e.clientY - dragState.startY;
+
+      setNodeDetailsPanels(
+        nodeDetailsPanels.map((panel) =>
+          panel.id === panelId
+            ? { ...panel, position: { x: newX, y: newY } }
+            : panel
+        )
+      );
+    }
+
+    // リサイズ中
+    if (dragState.isResizing && dragState.activePanel) {
+      const panelId = dragState.activePanel;
+      const newWidth = Math.max(
+        200,
+        dragState.startWidth + (e.clientX - dragState.startX)
+      );
+      const newHeight = Math.max(
+        100,
+        dragState.startHeight + (e.clientY - dragState.startY)
+      );
+
+      setNodeDetailsPanels(
+        nodeDetailsPanels.map((panel) =>
+          panel.id === panelId
+            ? { ...panel, size: { width: newWidth, height: newHeight } }
+            : panel
+        )
+      );
+    }
+  };
+
+  // マウスアップイベントのハンドリング
+  const handleMouseUp = () => {
+    if (dragState.isPanelDragging || dragState.isResizing) {
+      setDragState({
+        ...dragState,
+        isPanelDragging: false,
+        isResizing: false,
+        activePanel: null,
+      });
+    }
+  };
+
+  // グローバルのマウスイベントをリッスン
+  useEffect(() => {
+    document.addEventListener("mousemove", handleMouseMove);
+    document.addEventListener("mouseup", handleMouseUp);
+
+    // クリーンアップ関数
+    return () => {
+      document.removeEventListener("mousemove", handleMouseMove);
+      document.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [dragState, nodeDetailsPanels]);
+
   return (
     <div>
       <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
@@ -218,6 +428,7 @@ export const Graph = ({ dot }) => {
             onChange={(e) => {
               setSelectedNode(e.target.value);
               zoomToNode(e.target.value);
+              showNodeDetails(e.target.value);
             }}
           >
             {nodes.map((node) => (
@@ -240,6 +451,133 @@ export const Graph = ({ dot }) => {
       {/* グラフコンテナ - 相対配置 */}
       <Box sx={{ position: "relative" }}>
         <div ref={ref} style={{ width: "100%" }} />
+
+        {/* 複数のノード詳細パネル - ドラッグとリサイズ可能 */}
+        {nodeDetailsPanels.map((panel, index) => (
+          <Card
+            key={panel.id}
+            sx={{
+              position: "absolute",
+              top: panel.position.y,
+              left: panel.position.x,
+              width: panel.size.width,
+              height: panel.minimized ? "auto" : panel.size.height,
+              maxWidth: "95%",
+              zIndex: panel.zIndex,
+              boxShadow: 3,
+              overflow: "hidden",
+              transition: "height 0.2s ease-in-out",
+            }}
+          >
+            {/* パネルヘッダー - ドラッグハンドル */}
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                backgroundColor: "rgba(0, 0, 0, 0.05)",
+                padding: "8px 16px",
+                cursor: "move",
+                "&:hover": { backgroundColor: "rgba(0, 0, 0, 0.08)" },
+                borderBottom: "1px solid rgba(0, 0, 0, 0.12)",
+                position: "relative",
+              }}
+              onMouseDown={(e) => handlePanelDragStart(e, panel.id)}
+            >
+              {/* ドラッグハンドルアイコン */}
+              <Box
+                sx={{
+                  mr: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  color: "rgba(0, 0, 0, 0.4)",
+                }}
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24">
+                  <path
+                    fill="currentColor"
+                    d="M7 19v-2h2v2H7zm4 0v-2h2v2h-2zm4 0v-2h2v2h-2zm-8-4v-2h2v2H7zm4 0v-2h2v2h-2zm4 0v-2h2v2h-2zm-8-4V9h2v2H7zm4 0V9h2v2h-2zm4 0V9h2v2h-2zM7 7V5h2v2H7zm4 0V5h2v2h-2zm4 0V5h2v2h-2z"
+                  />
+                </svg>
+              </Box>
+
+              <Typography variant="subtitle1" sx={{ flexGrow: 1 }}>
+                {panel.title}
+              </Typography>
+
+              {/* コントロールボタン */}
+              <Box>
+                <IconButton
+                  size="small"
+                  onClick={() => handleToggleMinimize(panel.id)}
+                  sx={{ mr: 0.5 }}
+                >
+                  {panel.minimized ? (
+                    <svg width="16" height="16" viewBox="0 0 24 24">
+                      <path fill="currentColor" d="M19 13H5v-2h14v2z" />
+                    </svg>
+                  ) : (
+                    <svg width="16" height="16" viewBox="0 0 24 24">
+                      <path
+                        fill="currentColor"
+                        d="M12 8l-6 6 1.41 1.41L12 10.83l4.59 4.58L18 14z"
+                      />
+                    </svg>
+                  )}
+                </IconButton>
+                <IconButton
+                  size="small"
+                  onClick={() => handleClosePanel(panel.id)}
+                >
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </Box>
+            </Box>
+
+            {/* パネル内容 */}
+            {!panel.minimized && (
+              <CardContent>
+                <Typography variant="body1" paragraph>
+                  {panel.description}
+                </Typography>
+                <Typography variant="subtitle1" fontWeight="bold">
+                  接続情報:
+                </Typography>
+                {panel.connections.map((conn, idx) => (
+                  <Box key={idx} sx={{ mt: 1 }}>
+                    <Typography variant="body2">
+                      • {conn.to} ({conn.type})
+                    </Typography>
+                  </Box>
+                ))}
+              </CardContent>
+            )}
+
+            {/* リサイズハンドル */}
+            {!panel.minimized && (
+              <Box
+                sx={{
+                  position: "absolute",
+                  bottom: 0,
+                  right: 0,
+                  width: 20,
+                  height: 20,
+                  cursor: "nwse-resize",
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  alignItems: "flex-end",
+                }}
+                onMouseDown={(e) => handleResizeStart(e, panel.id)}
+              >
+                <svg width="10" height="10" viewBox="0 0 24 24">
+                  <path
+                    fill="rgba(0,0,0,0.3)"
+                    d="M22 22H20V20H22V22ZM22 20H20V18H22V20ZM20 22H18V20H20V22ZM18 22H16V20H18V22Z"
+                  />
+                </svg>
+              </Box>
+            )}
+          </Card>
+        ))}
 
         {/* Google Map風のズームコントロール */}
         <Box
