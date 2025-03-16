@@ -133,7 +133,7 @@ export const MultiLinePlot = ({ series }) => {
       .attr("class", "legend")
       .attr(
         "transform",
-        `translate(${width - margin.right + fontSize * 2}, ${margin.top})`
+        `translate(${width - margin.right + fontSize * 0.8}, ${margin.top})`
       ); // 凡例の位置を右に移動
 
     series.forEach((s, i) => {
