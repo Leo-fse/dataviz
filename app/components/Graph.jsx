@@ -20,38 +20,8 @@ import {
 import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
 import CloseIcon from "@mui/icons-material/Close";
-// パネル作成時に必ず最前面に来るようにするためのzIndexマネージャー
-const zIndexManagerRef = useRef({
-  currentMaxZIndex: 0,
-  getNextZIndex: function () {
-    this.currentMaxZIndex += 1;
-    return this.currentMaxZIndex;
-  },
-}); // パネルをアクティブ化するためのヘルパー関数（最小化されている場合は最大化する）
-const activatePanel = (panelId) => {
-  console.log(`Activating panel: ${panelId}`);
 
-  // パネルを最前面に
-  handleBringToFront(panelId);
-
-  // 最小化されている場合は最大化する
-  setNodeDetailsPanels((prevPanels) =>
-    prevPanels.map((panel) =>
-      panel.id === panelId && panel.minimized
-        ? { ...panel, minimized: false }
-        : panel
-    )
-  );
-};
-// グローバルスコープにハンドラーを定義
-const handleNodeClick = (event, nodeId, createPanelFunc, zoomFunc) => {
-  event.stopPropagation();
-  console.log("Node clicked globally:", nodeId);
-  if (nodeId) {
-    createPanelFunc(nodeId);
-    zoomFunc(nodeId);
-  }
-};
+// グローバルスコープにハンドラーを定義するのではなく、コンポーネント内部に移動する
 
 export const Graph = ({ dot }) => {
   const ref = useRef(null);
@@ -63,8 +33,9 @@ export const Graph = ({ dot }) => {
   const blinkIntervalRef = useRef(null); // 点滅管理用
   const blinkTimeoutRef = useRef(null); // 点滅終了用タイマー
   const [currentZoom, setCurrentZoom] = useState(1); // 現在のズームレベル
-  // ノードの詳細情報を保持するための状態
-  const [nodeDetailsPanels, setNodeDetailsPanels] = useState([]); // 複数パネル対応
+  // useStateに替えてuseRefを使用してパネル管理
+  const panelsRef = useRef([]);
+  const [nodeDetailsPanels, setNodeDetailsPanels] = useState([]); // 表示用
   // ドラッグとリサイズのための状態
   const [dragState, setDragState] = useState({
     isPanelDragging: false,
@@ -76,75 +47,6 @@ export const Graph = ({ dot }) => {
     startHeight: 0,
   });
 
-  useEffect(() => {
-    if (ref.current) {
-      const gviz = graphviz(ref.current, {
-        useWorker: false,
-      }).renderDot(dot);
-
-      gviz.on("end", () => {
-        const svg = d3.select(ref.current).select("svg");
-        svg.style("background-color", "lightgray");
-        svg.style("border", "2px solid black");
-        svg.style("width", "100%");
-        // svg.style("height", "100%");
-
-        // ノード一覧を取得
-        const nodeNames = d3
-          .select(ref.current)
-          .selectAll("g.node")
-          .nodes()
-          .map((node) => d3.select(node).attr("id"))
-          .filter((id) => id !== null);
-
-        // アルファベット順にソート
-        const uniqueNodeNames = [...new Set(nodeNames)].sort();
-        setNodes(uniqueNodeNames);
-
-        // SVGのサイズを取得
-        const svgBox = svg.node().getBBox();
-        const polygonBox = svg.select("polygon").node().getBBox();
-
-        console.log("svgGetBBox", svgBox);
-        console.log("polygonGetBBox", polygonBox);
-
-        setSvgGetBBox(svgBox);
-        setPolygonGetBBox(polygonBox);
-
-        // ズーム設定
-        const zoom = d3.zoom().on("zoom", (event) => {
-          svg.select("g").attr("transform", event.transform);
-          setCurrentZoom(event.transform.k); // ズームレベルを更新
-        });
-        svg.call(zoom);
-        zoomRef.current = zoom;
-
-        // ノードにクリックイベントを追加 - 重要な変更点
-        const nodes = d3.select(ref.current).selectAll("g.node");
-        console.log("Found nodes:", nodes.nodes().length);
-
-        // 名前を変更してcreateNewNodeDetailsPanelがきちんと参照されるようにする
-        const createPanelFunc = createNewNodeDetailsPanel;
-
-        nodes.each(function () {
-          const node = d3.select(this);
-          const nodeId = node.attr("id");
-          console.log("Setting up click handler for node:", nodeId);
-
-          node.on("click", function (event) {
-            console.log("Click triggered on node:", nodeId);
-            // 関数参照を明示的に渡す
-            handleNodeClick(event, nodeId, createPanelFunc, zoomToNode);
-          });
-        });
-
-        // 状態が更新された後にリセットを適用する
-        setTimeout(handleReset, 300);
-      });
-    }
-  }, []);
-
-  // プログラム開始時に実行されるコードのみをuseEffectの外に置く
   // パネル位置のパターンをコンポーネント内変数として定義
   const offsetPattern = [
     { x: 20, y: 20 }, // 1つ目のパネル
@@ -171,24 +73,120 @@ export const Graph = ({ dot }) => {
     },
   });
 
+  // パネルを最前面に
+  const handleBringToFront = (panelId) => {
+    const currentPanels = panelsRef.current;
+    const panel = currentPanels.find((p) => p.id === panelId);
+    if (!panel) return;
+
+    // 常に新しいzIndexを取得
+    const newZIndex = zIndexManagerRef.current.getNextZIndex();
+    console.log(
+      `Bringing panel to front with z-index: ${newZIndex} - Panel ID: ${panelId}`
+    );
+
+    // パネルのz-indexを更新
+    currentPanels.forEach((p) => {
+      if (p.id === panelId) {
+        p.zIndex = newZIndex;
+      }
+    });
+
+    // UIを更新
+    setNodeDetailsPanels([...currentPanels]);
+  };
+
+  // パネルをアクティブ化するためのヘルパー関数（最小化されている場合は最大化する）
+  const activatePanel = (panelId) => {
+    console.log(`Activating panel: ${panelId}`);
+
+    const currentPanels = panelsRef.current;
+    const panel = currentPanels.find((p) => p.id === panelId);
+
+    if (!panel) {
+      console.error(`Panel with ID ${panelId} does not exist!`);
+      return;
+    }
+
+    // パネルを最前面に
+    handleBringToFront(panelId);
+
+    // 最小化されている場合は最大化する
+    if (panel.minimized) {
+      panel.minimized = false;
+      setNodeDetailsPanels([...currentPanels]);
+    }
+  };
+
+  // ノードクリック時のハンドラー
+  const handleNodeClick = (event, nodeId) => {
+    event.stopPropagation();
+    console.log("Node clicked:", nodeId);
+    if (nodeId) {
+      // 直接関数を呼び出す
+      createNewNodeDetailsPanel(nodeId);
+      zoomToNode(nodeId);
+    }
+  };
+
+  // ノードの詳細情報を表示する関数（Selectボックス用）
+  const showNodeDetails = (nodeId) => {
+    if (!nodeId) return;
+    // Selectボックスからも同じパネル作成関数を使用
+    console.log("showNodeDetails called from select box for node:", nodeId);
+    createNewNodeDetailsPanel(nodeId);
+  };
+
+  // ノードの接続先を取得する関数（dotの解析から実装可能）
+  const getNodeConnections = (nodeId) => {
+    // この実装はシンプルな例です。実際のdotデータからパースするにはより複雑なロジックが必要かもしれません。
+    // ここではダミーデータを返しています
+    return [
+      { to: "接続先ノード1", type: "依存関係" },
+      { to: "接続先ノード2", type: "参照" },
+    ];
+  };
+
   // 新しいノード詳細パネルを作成する関数
   const createNewNodeDetailsPanel = (nodeId) => {
     if (!nodeId) return;
 
     console.log("Creating new panel for node:", nodeId);
 
-    // 既に同じノードのパネルが開いているか確認
-    const existingPanelIndex = nodeDetailsPanels.findIndex(
+    // 直接refからパネル一覧を取得して、対象ノードのパネルを検索
+    const currentPanels = panelsRef.current;
+    const existingPanels = currentPanels.filter(
       (panel) => panel.nodeId === nodeId
     );
 
-    // 既存のパネルがある場合は、そのパネルをアクティブにする
-    if (existingPanelIndex !== -1) {
-      console.log(`Panel for node ${nodeId} already exists. Activating it.`);
-      // 既存のパネルをアクティブ化
-      activatePanel(nodeDetailsPanels[existingPanelIndex].id);
+    if (existingPanels.length > 0) {
+      console.log(
+        `Found ${existingPanels.length} existing panels for node ${nodeId}`
+      );
+      // 既存のパネルの中で最も新しいものをアクティブ化
+      const existingPanel = existingPanels[existingPanels.length - 1];
+      console.log(`Activating existing panel with ID: ${existingPanel.id}`);
+
+      // 既存のパネルを最前面に
+      const newZIndex = zIndexManagerRef.current.getNextZIndex();
+      console.log(
+        `Setting z-index to ${newZIndex} for panel ${existingPanel.id}`
+      );
+
+      // パネルのZ-Indexを更新
+      currentPanels.forEach((panel) => {
+        if (panel.id === existingPanel.id) {
+          panel.zIndex = newZIndex;
+          panel.minimized = false;
+        }
+      });
+
+      // 更新されたパネル一覧をUIに反映
+      setNodeDetailsPanels([...currentPanels]);
       return;
     }
+
+    console.log(`No existing panel for node ${nodeId}. Creating new one.`);
 
     // パネル位置は単純に順番に使用し、一巡したら最初に戻る
     const positionIndex = currentPanelIndexRef.current;
@@ -224,27 +222,12 @@ export const Graph = ({ dot }) => {
       zIndex: newZIndex,
     };
 
-    // 新しいパネルを追加
+    // 新しいパネルを追加（直接refを更新）
     console.log("Adding new panel:", nodeInfo);
-    setNodeDetailsPanels((prevPanels) => [...prevPanels, nodeInfo]);
-  };
+    panelsRef.current.push(nodeInfo);
 
-  // ノードの詳細情報を表示する関数（Selectボックス用）
-  const showNodeDetails = (nodeId) => {
-    if (!nodeId) return;
-    // Selectボックスからも同じパネル作成関数を使用
-    console.log("showNodeDetails called from select box for node:", nodeId);
-    createNewNodeDetailsPanel(nodeId);
-  };
-
-  // ノードの接続先を取得する関数（dotの解析から実装可能）
-  const getNodeConnections = (nodeId) => {
-    // この実装はシンプルな例です。実際のdotデータからパースするにはより複雑なロジックが必要かもしれません。
-    // ここではダミーデータを返しています
-    return [
-      { to: "接続先ノード1", type: "依存関係" },
-      { to: "接続先ノード2", type: "参照" },
-    ];
+    // UIを更新
+    setNodeDetailsPanels([...panelsRef.current]);
   };
 
   const zoomToNode = (nodeId) => {
@@ -347,7 +330,9 @@ export const Graph = ({ dot }) => {
 
     setSelectedNode("");
     // 全パネルを閉じる
+    panelsRef.current = [];
     setNodeDetailsPanels([]);
+
     // パネル位置のインデックスをリセット
     currentPanelIndexRef.current = 0;
     // z-indexもリセット
@@ -386,42 +371,28 @@ export const Graph = ({ dot }) => {
 
   // パネルを閉じる
   const handleClosePanel = (panelId) => {
-    // パネルIDからそのパネルの情報を見つける
-    const panelToClose = nodeDetailsPanels.find(
-      (panel) => panel.id === panelId
-    );
+    const currentPanels = panelsRef.current;
 
-    // パネルを閉じる
-    setNodeDetailsPanels(
-      nodeDetailsPanels.filter((panel) => panel.id !== panelId)
-    );
+    // パネルを削除
+    panelsRef.current = currentPanels.filter((panel) => panel.id !== panelId);
+
+    // UIを更新
+    setNodeDetailsPanels([...panelsRef.current]);
   };
 
   // パネルを最小化/最大化
   const handleToggleMinimize = (panelId) => {
-    setNodeDetailsPanels(
-      nodeDetailsPanels.map((panel) =>
-        panel.id === panelId ? { ...panel, minimized: !panel.minimized } : panel
-      )
-    );
-  };
+    const currentPanels = panelsRef.current;
 
-  // パネルを最前面に
-  const handleBringToFront = (panelId) => {
-    const panel = nodeDetailsPanels.find((p) => p.id === panelId);
-    if (!panel) return;
+    // パネルを見つける
+    currentPanels.forEach((panel) => {
+      if (panel.id === panelId) {
+        panel.minimized = !panel.minimized;
+      }
+    });
 
-    // 常に新しいzIndexを取得
-    const newZIndex = zIndexManagerRef.current.getNextZIndex();
-    console.log(
-      `Bringing panel to front with z-index: ${newZIndex} - Panel ID: ${panelId}`
-    );
-
-    setNodeDetailsPanels(
-      nodeDetailsPanels.map((p) =>
-        p.id === panelId ? { ...p, zIndex: newZIndex } : p
-      )
-    );
+    // UIを更新
+    setNodeDetailsPanels([...currentPanels]);
   };
 
   // ドラッグ開始時の処理
@@ -465,19 +436,23 @@ export const Graph = ({ dot }) => {
 
   // マウス移動のハンドリング（ドラッグとリサイズ）
   const handleMouseMove = (e) => {
+    const currentPanels = panelsRef.current;
+
     // ドラッグ中
     if (dragState.isPanelDragging && dragState.activePanel) {
       const panelId = dragState.activePanel;
       const newX = e.clientX - dragState.startX;
       const newY = e.clientY - dragState.startY;
 
-      setNodeDetailsPanels(
-        nodeDetailsPanels.map((panel) =>
-          panel.id === panelId
-            ? { ...panel, position: { x: newX, y: newY } }
-            : panel
-        )
-      );
+      // パネルの位置を更新
+      currentPanels.forEach((panel) => {
+        if (panel.id === panelId) {
+          panel.position = { x: newX, y: newY };
+        }
+      });
+
+      // UIを更新
+      setNodeDetailsPanels([...currentPanels]);
     }
 
     // リサイズ中
@@ -492,13 +467,15 @@ export const Graph = ({ dot }) => {
         dragState.startHeight + (e.clientY - dragState.startY)
       );
 
-      setNodeDetailsPanels(
-        nodeDetailsPanels.map((panel) =>
-          panel.id === panelId
-            ? { ...panel, size: { width: newWidth, height: newHeight } }
-            : panel
-        )
-      );
+      // パネルのサイズを更新
+      currentPanels.forEach((panel) => {
+        if (panel.id === panelId) {
+          panel.size = { width: newWidth, height: newHeight };
+        }
+      });
+
+      // UIを更新
+      setNodeDetailsPanels([...currentPanels]);
     }
   };
 
@@ -513,6 +490,77 @@ export const Graph = ({ dot }) => {
       });
     }
   };
+
+  // コンポーネントの初期化
+  useEffect(() => {
+    // リファレンスを初期化
+    panelsRef.current = [];
+
+    console.log("Initializing graph component");
+    if (ref.current) {
+      const gviz = graphviz(ref.current, {
+        useWorker: false,
+      }).renderDot(dot);
+
+      gviz.on("end", () => {
+        const svg = d3.select(ref.current).select("svg");
+        svg.style("background-color", "lightgray");
+        svg.style("border", "2px solid black");
+        svg.style("width", "100%");
+        // svg.style("height", "100%");
+
+        // ノード一覧を取得
+        const nodeNames = d3
+          .select(ref.current)
+          .selectAll("g.node")
+          .nodes()
+          .map((node) => d3.select(node).attr("id"))
+          .filter((id) => id !== null);
+
+        // アルファベット順にソート
+        const uniqueNodeNames = [...new Set(nodeNames)].sort();
+        setNodes(uniqueNodeNames);
+
+        // SVGのサイズを取得
+        const svgBox = svg.node().getBBox();
+        const polygonBox = svg.select("polygon").node().getBBox();
+
+        console.log("svgGetBBox", svgBox);
+        console.log("polygonGetBBox", polygonBox);
+
+        setSvgGetBBox(svgBox);
+        setPolygonGetBBox(polygonBox);
+
+        // ズーム設定
+        const zoom = d3.zoom().on("zoom", (event) => {
+          svg.select("g").attr("transform", event.transform);
+          setCurrentZoom(event.transform.k); // ズームレベルを更新
+        });
+        svg.call(zoom);
+        zoomRef.current = zoom;
+
+        // ノードにクリックイベントを追加 - 重要な変更点
+        const nodes = d3.select(ref.current).selectAll("g.node");
+        console.log("Found nodes:", nodes.nodes().length);
+
+        // ノードをクリックしたときの処理
+        nodes.each(function () {
+          const node = d3.select(this);
+          const nodeId = node.attr("id");
+          console.log("Setting up click handler for node:", nodeId);
+
+          node.on("click", function (event) {
+            console.log("Click triggered on node:", nodeId);
+            // 直接ハンドラーを呼び出す
+            handleNodeClick(event, nodeId);
+          });
+        });
+
+        // 状態が更新された後にリセットを適用する
+        setTimeout(handleReset, 300);
+      });
+    }
+  }, []);
 
   // グローバルのマウスイベントをリッスン
   useEffect(() => {
