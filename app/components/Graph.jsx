@@ -9,8 +9,9 @@ import {
   FormControl,
   InputLabel,
   Button,
+  Typography,
 } from "@mui/material";
-
+import Paper from "@mui/material/Paper";
 const dot = `digraph {
   A [id="A"];
   B [id="B"];
@@ -34,6 +35,8 @@ export const Graph = () => {
   const [svgGetBBox, setSvgGetBBox] = useState(null); // SVG全体のサイズ情報
   const [polygonGetBBox, setPolygonGetBBox] = useState(null); // グラフの囲みサイズ
   const zoomRef = useRef(null); // D3ズームインスタンス
+  const blinkIntervalRef = useRef(null); // 点滅管理用
+  const blinkTimeoutRef = useRef(null); // **点滅終了用タイマー**
 
   useEffect(() => {
     if (ref.current) {
@@ -45,8 +48,8 @@ export const Graph = () => {
         const svg = d3.select(ref.current).select("svg");
         svg.style("background-color", "lightgray");
         svg.style("border", "2px solid black");
-        svg.style("width", "500px");
-        svg.style("height", "500px");
+        svg.style("width", "100%");
+        // svg.style("height", "100%");
 
         // ノード一覧を取得
         const nodeNames = d3
@@ -113,6 +116,52 @@ export const Graph = () => {
       .translate(translateX, translateY)
       .scale(zoomScale);
     svg.transition().duration(750).call(zoomRef.current.transform, transform);
+
+    // **ノードを4秒間点滅させる**
+    blinkNode(nodeId);
+  };
+
+  const blinkNode = (nodeId) => {
+    // 以前の点滅をクリア
+    if (blinkIntervalRef.current) {
+      clearInterval(blinkIntervalRef.current);
+    }
+    if (blinkTimeoutRef.current) {
+      clearTimeout(blinkTimeoutRef.current);
+    }
+
+    const node = d3.select(ref.current).select(`#${nodeId} ellipse`);
+    if (node.empty()) return;
+
+    // 以前のノードの色を元に戻す
+    d3.select(ref.current)
+      .selectAll("ellipse")
+      .transition()
+      .duration(200)
+      .attr("fill", "white")
+      .attr("opacity", 1.0);
+
+    let isHighlighted = false;
+
+    // 500ms 間隔で透明度を変える（スケルトンローディング風）
+    blinkIntervalRef.current = setInterval(() => {
+      isHighlighted = !isHighlighted;
+      node
+        .transition()
+        .duration(500) // 0.5秒でゆっくり変化
+        .attr("fill", isHighlighted ? "lightgray" : "white")
+        .attr("opacity", isHighlighted ? 0.5 : 1.0);
+    }, 500);
+
+    // **4秒後に点滅を停止**
+    blinkTimeoutRef.current = setTimeout(() => {
+      clearInterval(blinkIntervalRef.current);
+      node
+        .transition()
+        .duration(500)
+        .attr("fill", "white")
+        .attr("opacity", 1.0); // 完全に元の状態に戻す
+    }, 4000);
   };
 
   const handleReset = () => {
@@ -137,7 +186,6 @@ export const Graph = () => {
 
   return (
     <div>
-      <h1>Graph</h1>
       <FormControl style={{ minWidth: 200, marginBottom: 10 }}>
         <InputLabel>ノードを選択</InputLabel>
         <Select
@@ -162,7 +210,7 @@ export const Graph = () => {
       >
         リセット
       </Button>
-      <div ref={ref} style={{ width: "500px", height: "500px" }} />
+      <div ref={ref} style={{}} />
     </div>
   );
 };

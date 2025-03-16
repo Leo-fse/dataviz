@@ -4,6 +4,8 @@ import "@fontsource/roboto/300.css";
 import "@fontsource/roboto/400.css";
 import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
+import NavTabs from "./components/NavTabs";
+import { Paper } from "@mui/material";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -27,7 +29,12 @@ export default function RootLayout({ children }) {
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <NavTabs />
+        <div className="p-4">
+          <Paper elevation={5}>
+            <div className="p-4">{children}</div>
+          </Paper>
+        </div>
       </body>
     </html>
   );
