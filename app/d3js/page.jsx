@@ -26,6 +26,7 @@ const seriesData = [
       { date: "2023-04-01", value: 95 },
       { date: "2023-05-01", value: 100 },
       { date: "2023-06-01", value: 105 },
+      { date: "2023-06-03", value: 90 },
     ],
   },
   {

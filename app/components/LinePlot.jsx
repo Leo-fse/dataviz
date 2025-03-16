@@ -206,20 +206,24 @@ export const MultiLinePlot = ({ series }) => {
         .attr("opacity", 0);
     });
 
-    // 日付で近いデータポイントを取得するための関数
+    // 日付で近いデータポイントを取得するための関数 - 改善版
     const findClosestPoints = (date) => {
       const points = {};
+      const actualDates = {}; // 各系列の実際の日付を保存
 
       series.forEach((s) => {
         // 日付が最も近いポイントを見つける
         let closest = null;
         let minDistance = Infinity;
+        let closestDate = null;
 
         s.data.forEach((d) => {
-          const distance = Math.abs(new Date(d.date) - date);
+          const pointDate = new Date(d.date);
+          const distance = Math.abs(pointDate - date);
           if (distance < minDistance) {
             minDistance = distance;
             closest = d;
+            closestDate = pointDate;
           }
         });
 
@@ -229,11 +233,13 @@ export const MultiLinePlot = ({ series }) => {
             seriesId: s.id,
             seriesName: s.name || s.id,
             color: s.color || d3.schemeCategory10[series.indexOf(s) % 10],
+            distance: minDistance, // 日付との距離を保存
           };
+          actualDates[s.id] = closestDate;
         }
       });
 
-      return points;
+      return { points, actualDates };
     };
 
     // マウスイベント用の透明なレイヤー
@@ -255,37 +261,66 @@ export const MultiLinePlot = ({ series }) => {
         const date = xScale.invert(adjustedMouseX);
 
         // 該当する日付に最も近いすべての系列のデータポイントを取得
-        const closestPoints = findClosestPoints(date);
+        const { points, actualDates } = findClosestPoints(date);
 
-        // 垂直線の位置を更新
-        // すべての点の中から最も左の日付を使用
-        const earliestDate = new Date(
-          Math.min(...Object.values(closestPoints).map((p) => new Date(p.date)))
-        );
-        const xPos = xScale(earliestDate);
+        // データポイントの日付との距離が閾値以内のもののみを表示
+        // 例：7日以上離れている場合は表示しない
+        const maxDistanceMs = 7 * 24 * 60 * 60 * 1000; // 7日をミリ秒で
+        const filteredPoints = {};
+        Object.entries(points).forEach(([id, point]) => {
+          if (point.distance <= maxDistanceMs) {
+            filteredPoints[id] = point;
+          }
+        });
 
+        // 表示するポイントがなければ終了
+        if (Object.keys(filteredPoints).length === 0) {
+          verticalLine.attr("opacity", 0);
+          Object.values(hoverCircles).forEach((circle) =>
+            circle.attr("opacity", 0)
+          );
+          tooltip.style("opacity", 0);
+          return;
+        }
+
+        // マウス位置の垂直線
+        const xPos = adjustedMouseX;
         verticalLine.attr("x1", xPos).attr("x2", xPos).attr("opacity", 1);
 
         // 各系列のホバー円を更新
-        Object.entries(closestPoints).forEach(([id, point]) => {
+        Object.entries(points).forEach(([id, point]) => {
+          const pointDate = new Date(point.date);
           const yPos = yScale(point.value);
+          const xPos = xScale(pointDate);
+
+          // 距離に基づいて透明度を調整
+          const opacity = point.distance <= maxDistanceMs ? 1 : 0;
 
           hoverCircles[id]
-            .attr("cx", xScale(new Date(point.date)))
+            .attr("cx", xPos)
             .attr("cy", yPos)
-            .attr("opacity", 1);
+            .attr("opacity", opacity);
         });
 
         // ツールチップ内容を作成
-        let tooltipContent = `<div style="font-weight: bold; font-size: ${fontSize}px;">日付: ${earliestDate.toLocaleDateString()}</div>`;
+        let tooltipContent = `<div style="font-weight: bold; font-size: ${fontSize}px;">日付: ${date.toLocaleDateString()}</div>`;
         tooltipContent += `<table style="border-collapse: collapse; width: 100%; font-size: ${fontSize}px;">`;
 
         // 値が大きい順にソート
-        const sortedPoints = Object.values(closestPoints).sort(
+        const sortedPoints = Object.values(filteredPoints).sort(
           (a, b) => b.value - a.value
         );
 
         sortedPoints.forEach((point) => {
+          const pointDate = new Date(point.date);
+          const diffDays = Math.round(point.distance / (24 * 60 * 60 * 1000));
+          const dateInfo =
+            diffDays === 0
+              ? pointDate.toLocaleDateString()
+              : `${pointDate.toLocaleDateString()} (${
+                  diffDays > 0 ? "+" : ""
+                }${diffDays}日)`;
+
           tooltipContent += `
             <tr>
               <td>
@@ -296,6 +331,11 @@ export const MultiLinePlot = ({ series }) => {
               </td>
               <td style="text-align: right; padding-left: 10px;">
                 ${point.value}
+              </td>
+              <td style="text-align: right; padding-left: 10px; color: ${
+                diffDays === 0 ? "white" : "#aaa"
+              };">
+                ${dateInfo}
               </td>
             </tr>
           `;
@@ -312,8 +352,8 @@ export const MultiLinePlot = ({ series }) => {
         let tooltipY = margin.top - containerBounds.top;
 
         // 画面の右端ならツールチップを左側に配置
-        if (pageX + fontSize * 10 > window.innerWidth) {
-          tooltipX = pageX - fontSize * 11 - containerBounds.left;
+        if (pageX + fontSize * 15 > window.innerWidth) {
+          tooltipX = pageX - fontSize * 16 - containerBounds.left;
         }
 
         tooltip
