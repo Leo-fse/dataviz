@@ -142,42 +142,16 @@ export const Graph = ({ dot }) => {
     graphInitialized,
   ]);
 
-  // 初期化後のリセット処理はもう少し早く実行
+  // 初期化後のリセット処理 - ひとつにまとめる
   useEffect(() => {
     if (!graphInitialized || !svgGetBBox || !polygonGetBBox) return;
 
     console.log("グラフ初期化後の初期リセットを実行中");
 
-    // 設定が完了したら即座にリセットを適用
+    // 一度だけリセットを実行
     const timer = setTimeout(() => {
       handleReset();
-    }, 50); // 100msから50msに短縮
-
-    return () => clearTimeout(timer);
-  }, [graphInitialized, svgGetBBox, polygonGetBBox, handleReset]);
-
-  // 初期化後のリセット処理も高速化
-  useEffect(() => {
-    if (!graphInitialized || !svgGetBBox || !polygonGetBBox) return;
-
-    console.log("グラフ初期化後の初期リセットを実行中");
-    // リセットのタイミングを早める
-    const timer = setTimeout(() => {
-      handleReset();
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, [graphInitialized, svgGetBBox, polygonGetBBox, handleReset]);
-
-  // グラフが初期化され、バウンディングボックスが設定された後にリセットを処理
-  useEffect(() => {
-    if (!graphInitialized || !svgGetBBox || !polygonGetBBox) return;
-
-    console.log("グラフ初期化後の初期リセットを実行中");
-    // すべてが適切に設定されるように遅延を入れて初期リセットを適用
-    const timer = setTimeout(() => {
-      handleReset();
-    }, 500);
+    }, 100); // 十分短いが確実な時間
 
     return () => clearTimeout(timer);
   }, [graphInitialized, svgGetBBox, polygonGetBBox, handleReset]);
