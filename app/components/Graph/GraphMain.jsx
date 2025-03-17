@@ -5,28 +5,30 @@ import * as d3 from "d3";
 import { graphviz } from "d3-graphviz";
 import { Box } from "@mui/material";
 
-// Import custom hooks
+// カスタムフックのインポート
 import { useZoom } from "./hooks/useZoom";
 import { useNodeBlinking } from "./hooks/useNodeBlinking";
 import { usePanels } from "./hooks/usePanels";
 import { useNodeSelection } from "./hooks/useNodeSelection";
 
-// Import components
+// コンポーネントのインポート
 import NodeSelector from "./components/NodeSelector";
 import ZoomControls from "./components/ZoomControls";
 import NodeDetailsPanel from "./components/NodeDetailsPanel";
 
 /**
- * Main Graph component
- * @param {Object} props - Component props
- * @param {string} props.dot - DOT format graph description
+ * メインのグラフコンポーネント
+ * @param {Object} props - コンポーネントのプロパティ
+ * @param {string} props.dot - DOT形式のグラフ記述
  */
 export const Graph = ({ dot }) => {
   const graphRef = useRef(null);
   const [svgGetBBox, setSvgGetBBox] = useState(null);
   const [polygonGetBBox, setPolygonGetBBox] = useState(null);
+  const [graphInitialized, setGraphInitialized] = useState(false);
+  const [svgElement, setSvgElement] = useState(null);
 
-  // Initialize custom hooks
+  // カスタムフックの初期化
   const { blinkNode } = useNodeBlinking();
 
   const {
@@ -63,54 +65,88 @@ export const Graph = ({ dot }) => {
     blinkNode,
   });
 
-  // Combined reset function
+  // 完全リセット関数
   const handleFullReset = () => {
+    console.log("完全リセットを実行中...");
     handleReset();
     resetPanels();
     setSelectedNode("");
   };
 
-  // Initialize graph and set up event handlers
+  // グラフを初期化してイベントハンドラを設定
   useEffect(() => {
-    if (!graphRef.current) return;
+    if (!graphRef.current || graphInitialized) return;
+
+    console.log("DOTデータを使用してグラフを初期化中");
 
     const gviz = graphviz(graphRef.current, {
       useWorker: false,
     }).renderDot(dot);
 
     gviz.on("end", () => {
-      const svg = d3.select(graphRef.current).select("svg");
+      console.log("グラフのレンダリングが完了しました");
 
-      // Style the SVG
+      const svg = d3.select(graphRef.current).select("svg");
+      setSvgElement(svg);
+
+      // SVGのスタイル設定
       svg.style("background-color", "lightgray");
       svg.style("border", "2px solid black");
       svg.style("width", "100%");
 
-      // Extract nodes from graph
+      // グラフからノードを抽出
       const nodeNames = extractNodes(graphRef.current);
-      console.log("Found nodes:", nodeNames.length);
+      console.log(`${nodeNames.length}個のノードが見つかりました`);
 
-      // Get bounding boxes
+      // バウンディングボックスを取得
       const svgBox = svg.node().getBBox();
-      const polygonBox = svg.select("polygon").node().getBBox();
+      const polygonElement = svg.select("polygon");
+
+      if (polygonElement.empty()) {
+        console.warn("ポリゴン要素が見つかりません");
+        return;
+      }
+
+      const polygonBox = polygonElement.node().getBBox();
+
+      console.log("SVG BBox:", svgBox);
+      console.log("Polygon BBox:", polygonBox);
 
       setSvgGetBBox(svgBox);
       setPolygonGetBBox(polygonBox);
 
-      // Set up zoom behavior
+      // ズーム動作の設定
       const zoomBehavior = initializeZoom(svg);
 
-      // Attach click handlers to nodes
+      // ノードにクリックハンドラーを追加
       attachNodeClickHandlers(graphRef.current);
 
-      // Initial reset after state is updated
-      setTimeout(handleReset, 300);
+      setGraphInitialized(true);
     });
-  }, [extractNodes, attachNodeClickHandlers, handleReset, initializeZoom]);
+  }, [
+    dot,
+    extractNodes,
+    attachNodeClickHandlers,
+    initializeZoom,
+    graphInitialized,
+  ]);
+
+  // グラフが初期化され、バウンディングボックスが設定された後にリセットを処理
+  useEffect(() => {
+    if (!graphInitialized || !svgGetBBox || !polygonGetBBox) return;
+
+    console.log("グラフ初期化後の初期リセットを実行中");
+    // すべてが適切に設定されるように遅延を入れて初期リセットを適用
+    const timer = setTimeout(() => {
+      handleReset();
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [graphInitialized, svgGetBBox, polygonGetBBox, handleReset]);
 
   return (
     <div>
-      {/* Node selection dropdown and reset button */}
+      {/* ノード選択ドロップダウンとリセットボタン */}
       <NodeSelector
         selectedNode={selectedNode}
         nodes={nodes}
@@ -118,12 +154,12 @@ export const Graph = ({ dot }) => {
         onReset={handleFullReset}
       />
 
-      {/* Graph container */}
+      {/* グラフコンテナ */}
       <Box sx={{ position: "relative" }}>
-        {/* Main graph */}
+        {/* メイングラフ */}
         <div ref={graphRef} style={{ width: "100%" }} />
 
-        {/* Node detail panels */}
+        {/* ノード詳細パネル */}
         {nodeDetailsPanels.map((panel) => (
           <NodeDetailsPanel
             key={panel.id}
@@ -135,7 +171,7 @@ export const Graph = ({ dot }) => {
           />
         ))}
 
-        {/* Zoom controls */}
+        {/* ズームコントロール */}
         <ZoomControls onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} />
       </Box>
     </div>
