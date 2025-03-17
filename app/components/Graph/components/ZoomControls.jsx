@@ -15,7 +15,7 @@ const ZoomControls = ({ onZoomIn, onZoomOut }) => {
     <Box
       sx={{
         position: "fixed",
-        top: "160px",
+        top: "200px",
         bottom: "auto",
         right: "60px",
         backgroundColor: "white",
