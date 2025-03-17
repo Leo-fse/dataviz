@@ -17,6 +17,15 @@ const dot = `digraph {
   I [id="I"];
   N [id="N"];
   M [id="M"];
+  J [id="J"];
+  K [id="K"];
+  L [id="L"];
+  N [id="N"];
+  O [id="O"];
+  P [id="P"];
+  Q [id="Q"];
+  R [id="R"];
+  S [id="S"];
   A -> B;
   A -> C;
   B -> D;
