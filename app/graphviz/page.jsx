@@ -1,6 +1,5 @@
 "use client";
 import { Graph } from "../components/Graph";
-import { Graph2 } from "../components/Graph2";
 
 // DOTグラフの定義を修正 - rankdir="LR"を追加して横向きに
 const dot = `digraph {
@@ -36,8 +35,6 @@ export default function GraphvizPage() {
   return (
     <>
       <Graph dot={dot} />
-      <p>あいだ</p>
-      <Graph2 dot={dot} />
     </>
   );
 }

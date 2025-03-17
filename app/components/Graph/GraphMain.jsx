@@ -21,10 +21,9 @@ import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
 import CloseIcon from "@mui/icons-material/Close";
 
-// グローバルスコープにハンドラーを定義するのではなく、コンポーネント内部に移動する
-
 export const Graph = ({ dot }) => {
   const ref = useRef(null);
+
   const [selectedNode, setSelectedNode] = useState(""); // 選択されたノード
   const [nodes, setNodes] = useState([]); // ノード一覧
   const [svgGetBBox, setSvgGetBBox] = useState(null); // SVG全体のサイズ情報
