@@ -1,5 +1,6 @@
 "use client";
 
+import { useViewportCenter } from "./hooks/useViewportCenter";
 import React, { useEffect, useRef, useState } from "react";
 import * as d3 from "d3";
 import { graphviz } from "d3-graphviz";
@@ -28,6 +29,15 @@ export const Graph = ({ dot }) => {
   const [graphInitialized, setGraphInitialized] = useState(false);
   const [svgElement, setSvgElement] = useState(null);
 
+  const {
+    containerRef,
+    svgRef: viewportSvgRef,
+    viewportCenter,
+    svgCenter,
+    calculateCenter,
+    onZoomChange,
+  } = useViewportCenter();
+
   // カスタムフックの初期化
   const { blinkNode } = useNodeBlinking();
 
@@ -39,7 +49,11 @@ export const Graph = ({ dot }) => {
     handleZoomIn,
     handleZoomOut,
     zoomToNode,
-  } = useZoom({ svgGetBBox, polygonGetBBox });
+  } = useZoom({
+    svgGetBBox,
+    polygonGetBBox,
+    onZoomChange, // これを追加
+  });
 
   const {
     nodeDetailsPanels,
@@ -96,6 +110,9 @@ export const Graph = ({ dot }) => {
 
       setSvgElement(svg);
 
+      // SVG要素をviewportSvgRefにも設定
+      viewportSvgRef.current = svg.node();
+
       // グラフからノードを抽出
       const nodeNames = extractNodes(graphRef.current);
       console.log(`${nodeNames.length}個のノードが見つかりました`);
@@ -130,6 +147,9 @@ export const Graph = ({ dot }) => {
       attachNodeClickHandlers(graphRef.current);
 
       setGraphInitialized(true);
+
+      // 初期中心点を計算
+      calculateCenter();
     });
   }, [
     dot,
@@ -137,6 +157,7 @@ export const Graph = ({ dot }) => {
     attachNodeClickHandlers,
     initializeZoom,
     graphInitialized,
+    calculateCenter,
   ]);
 
   // 初期化後のリセット処理 - ひとつにまとめる
@@ -163,15 +184,16 @@ export const Graph = ({ dot }) => {
         onReset={handleFullReset}
       />
 
-      {/* グラフコンテナ - 高さと幅を固定し、オーバーフローをスクロールに設定 */}
+      {/* グラフコンテナ - containerRefを追加 */}
       <Box
+        ref={containerRef} // ここにcontainerRefを追加
         sx={{
           position: "relative",
           width: "100%",
-          height: "calc(100vh - 200px)", // 上部余白をさらに増やす
-          minHeight: "380px", // 最小高さを保証
+          height: "calc(100vh - 200px)",
+          minHeight: "380px",
           border: "1px solid #ccc",
-          overflow: "auto", // スクロール可能に維持
+          overflow: "auto",
         }}
       >
         {/* メイングラフ */}
@@ -195,7 +217,25 @@ export const Graph = ({ dot }) => {
           />
         ))}
 
-        {/* ズームコントロール */}
+        {/* オプション: デバッグ用にビューポートの中心点を表示 */}
+        {process.env.NODE_ENV === "development" && (
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              right: 0,
+              background: "rgba(255,255,255,0.8)",
+              padding: "4px",
+              fontSize: "12px",
+              zIndex: 1000,
+            }}
+          >
+            中心点: x={viewportCenter.x.toFixed(0)}, y=
+            {viewportCenter.y.toFixed(0)}
+            <br />
+            SVG中心: x={svgCenter.x.toFixed(0)}, y={svgCenter.y.toFixed(0)}
+          </div>
+        )}
       </Box>
       <ZoomControls onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} />
     </div>
