@@ -16,15 +16,14 @@ export const Graph2 = ({ dot }) => {
     dot
   );
 
-  const { currentZoom, zoomRef, setupZoom, handleZoomIn } = useZoom(
-    graphRef,
-    svgGetBBox,
-    polygonGetBBox
-  );
+  const { currentZoom, zoomRef, setupZoom, handleZoomIn, handleZoomOut } =
+    useZoom(graphRef, svgGetBBox, polygonGetBBox);
 
   useEffect(() => {
-    initializeGraph();
-    setupZoom();
+    if (dot) {
+      initializeGraph();
+      setupZoom();
+    }
   }, [dot]);
 
   return (
@@ -46,7 +45,7 @@ export const Graph2 = ({ dot }) => {
           <AddIcon />
         </IconButton>
         <Box sx={{ height: "1px", backgroundColor: "#e0e0e0" }} />
-        <IconButton size="small">
+        <IconButton size="small" onClick={handleZoomOut}>
           <RemoveIcon />
         </IconButton>
       </Box>

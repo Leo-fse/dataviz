@@ -22,7 +22,7 @@ export const useCreateGraph = (graphRef, dot) => {
 
         // SVGのサイズを取得
         const svgBox = svg.node().getBBox();
-        const polygonBox = svg.select("polygon").node().getBBox();
+        const polygonBox = polygonElement ? polygonElement.getBBox() : null;
         console.log("svgGetBBox", svgBox);
         console.log("polygonGetBBox", polygonBox);
         setSvgGetBBox(svgBox);
@@ -30,7 +30,7 @@ export const useCreateGraph = (graphRef, dot) => {
 
         // ノード一覧を取得
         const nodeNames = d3
-          .select(ref.current)
+          .select(graphRef.current)
           .selectAll("g.node")
           .nodes()
           .map((node) => d3.select(node).attr("id"))
