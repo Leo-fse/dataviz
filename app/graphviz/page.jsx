@@ -1,5 +1,6 @@
 "use client";
 import { Graph } from "../components/Graph";
+import { Box } from "@mui/material";
 
 // DOTグラフの定義を修正 - rankdir="LR"を追加して横向きに
 const dot = `digraph {
@@ -60,13 +61,12 @@ const dot = `digraph {
   S -> R;
   R -> Q;
   Q -> P;
-
-  
 }`;
+
 export default function GraphvizPage() {
   return (
-    <>
+    <Box sx={{ height: "calc(100vh - 100px)" }}>
       <Graph dot={dot} />
-    </>
+    </Box>
   );
 }

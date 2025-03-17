@@ -148,6 +148,9 @@ export const Graph = ({ dot }) => {
     return () => clearTimeout(timer);
   }, [graphInitialized, svgGetBBox, polygonGetBBox, handleReset]);
 
+  // GraphMain.jsx の変更部分
+
+  // グラフコンテナスタイルを更新
   return (
     <div>
       {/* ノード選択ドロップダウンとリセットボタン */}
@@ -158,10 +161,25 @@ export const Graph = ({ dot }) => {
         onReset={handleFullReset}
       />
 
-      {/* グラフコンテナ */}
-      <Box sx={{ position: "relative", width: "100%", height: "100%j" }}>
+      {/* グラフコンテナ - 高さと幅を固定し、オーバーフローをスクロールに設定 */}
+      <Box
+        sx={{
+          position: "relative",
+          width: "100%",
+          height: "calc(100vh - 150px)", // 上部のナビとセレクターのスペースを差し引いた高さ
+          border: "1px solid #ccc",
+          overflow: "auto", // スクロール可能に設定
+        }}
+      >
         {/* メイングラフ */}
-        <div ref={graphRef} />
+        <div
+          ref={graphRef}
+          style={{
+            minWidth: "100%",
+            minHeight: "100%",
+          }}
+        />
+
         {/* ノード詳細パネル */}
         {nodeDetailsPanels.map((panel) => (
           <NodeDetailsPanel
