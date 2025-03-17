@@ -77,7 +77,7 @@ export const usePanels = () => {
   const calculateNewPanelPosition = useCallback(() => {
     // 最後に表示したパネルの位置から少しずらす
     const newPosition = {
-      x: lastPanelPositionRef.current.x + 20, // 横方向に少しずらす
+      x: lastPanelPositionRef.current.x,
       y: lastPanelPositionRef.current.y + PANEL_HEADER_HEIGHT, // ヘッダー分だけ下げる
     };
 
