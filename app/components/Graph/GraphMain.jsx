@@ -21,6 +21,14 @@ import AddIcon from "@mui/icons-material/Add";
 import RemoveIcon from "@mui/icons-material/Remove";
 import CloseIcon from "@mui/icons-material/Close";
 
+import {
+  PANEL_OFFSET_PATTERN,
+  DEFAULT_PANEL_SIZE,
+  ZOOM_SETTINGS,
+  PANEL_STYLES,
+  INITIAL_DRAG_STATE,
+} from "./constant";
+
 export const Graph = ({ dot }) => {
   const ref = useRef(null);
 
@@ -45,20 +53,6 @@ export const Graph = ({ dot }) => {
     startWidth: 0,
     startHeight: 0,
   });
-
-  // パネル位置のパターンをコンポーネント内変数として定義
-  const offsetPattern = [
-    { x: 20, y: 20 }, // 1つ目のパネル
-    { x: 70, y: 40 }, // 2つ目のパネル
-    { x: 120, y: 60 }, // 3つ目のパネル
-    { x: 170, y: 80 }, // 4つ目のパネル
-    { x: 200, y: 120 }, // 5つ目のパネル
-    { x: 180, y: 180 }, // 6つ目のパネル
-    { x: 130, y: 200 }, // 7つ目のパネル
-    { x: 80, y: 220 }, // 8つ目のパネル
-    { x: 40, y: 180 }, // 9つ目のパネル
-    { x: 30, y: 120 }, // 10つ目のパネル
-  ];
 
   // 現在のパネル位置のインデックスを追跡するRef
   const currentPanelIndexRef = useRef(0);
@@ -189,7 +183,7 @@ export const Graph = ({ dot }) => {
 
     // パネル位置は単純に順番に使用し、一巡したら最初に戻る
     const positionIndex = currentPanelIndexRef.current;
-    const position = offsetPattern[positionIndex];
+    const position = PANEL_OFFSET_PATTERN[positionIndex];
 
     console.log(
       `Using position pattern #${positionIndex + 1}: (${position.x}, ${
@@ -199,7 +193,7 @@ export const Graph = ({ dot }) => {
 
     // 次のパネルのために位置インデックスを更新
     currentPanelIndexRef.current =
-      (currentPanelIndexRef.current + 1) % offsetPattern.length;
+      (currentPanelIndexRef.current + 1) % PANEL_OFFSET_PATTERN.length;
 
     // 常に最大のzIndexを使用する
     const newZIndex = zIndexManagerRef.current.getNextZIndex();
@@ -216,7 +210,7 @@ export const Graph = ({ dot }) => {
         x: position.x,
         y: position.y,
       },
-      size: { width: 300, height: 200 },
+      size: DEFAULT_PANEL_SIZE,
       minimized: false,
       zIndex: newZIndex,
     };
@@ -244,7 +238,7 @@ export const Graph = ({ dot }) => {
     const nodeCenterY = nodeBox.y + nodeBox.height / 2;
 
     // ズーム倍率（ノードを大きく表示するためのスケール）
-    const zoomScale = 2.0;
+    const zoomScale = ZOOM_SETTINGS.nodeZoomScale;
 
     // ノードを中心に持ってくるための移動量
     const translateX = svgGetBBox.width / 2 - nodeCenterX * zoomScale;
@@ -289,12 +283,12 @@ export const Graph = ({ dot }) => {
 
     let isHighlighted = false;
 
-    // 500ms 間隔で透明度を変える（スケルトンローディング風）
+    // 500ms 間隔で透明度を変える
     blinkIntervalRef.current = setInterval(() => {
       isHighlighted = !isHighlighted;
       node
         .transition()
-        .duration(500) // 0.5秒でゆっくり変化
+        .duration(ZOOM_SETTINGS.blinkInterval)
         .attr("fill", isHighlighted ? "lightgray" : "white")
         .attr("opacity", isHighlighted ? 0.5 : 1.0);
     }, 500);
@@ -304,10 +298,10 @@ export const Graph = ({ dot }) => {
       clearInterval(blinkIntervalRef.current);
       node
         .transition()
-        .duration(500)
+        .duration(ZOOM_SETTINGS.blinkInterval)
         .attr("fill", "white")
         .attr("opacity", 1.0); // 完全に元の状態に戻す
-    }, 4000);
+    }, ZOOM_SETTINGS.blinkDuration);
   };
 
   const handleReset = () => {
@@ -347,10 +341,11 @@ export const Graph = ({ dot }) => {
     const centerY = svgGetBBox.height / 2;
 
     // D3.jsのズーム機能を使用して、中心点を指定してズーム
-    zoomRef.current.scaleBy(svg.transition().duration(300), 1.3, [
-      centerX,
-      centerY,
-    ]);
+    zoomRef.current.scaleBy(
+      svg.transition().duration(ZOOM_SETTINGS.animationDuration),
+      ZOOM_SETTINGS.zoomInFactor,
+      [centerX, centerY]
+    );
   };
 
   const handleZoomOut = () => {
@@ -362,10 +357,11 @@ export const Graph = ({ dot }) => {
     const centerY = svgGetBBox.height / 2;
 
     // D3.jsのズーム機能を使用して、中心点を指定してズーム
-    zoomRef.current.scaleBy(svg.transition().duration(300), 0.7, [
-      centerX,
-      centerY,
-    ]);
+    zoomRef.current.scaleBy(
+      svg.transition().duration(ZOOM_SETTINGS.animationDuration),
+      ZOOM_SETTINGS.zoomOutFactor,
+      [centerX, centerY]
+    );
   };
 
   // パネルを閉じる
@@ -630,11 +626,11 @@ export const Graph = ({ dot }) => {
               sx={{
                 display: "flex",
                 alignItems: "center",
-                backgroundColor: "rgba(0, 0, 0, 0.05)",
+                backgroundColor: PANEL_STYLES.headerBgColor,
                 padding: "8px 16px",
                 cursor: "move",
-                "&:hover": { backgroundColor: "rgba(0, 0, 0, 0.08)" },
-                borderBottom: "1px solid rgba(0, 0, 0, 0.12)",
+                "&:hover": { backgroundColor: PANEL_STYLES.headerHoverBgColor },
+                borderBottom: PANEL_STYLES.headerBorderBottom,
                 position: "relative",
               }}
               onMouseDown={(e) => {
