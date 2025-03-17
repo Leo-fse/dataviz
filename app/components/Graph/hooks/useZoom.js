@@ -169,15 +169,38 @@ export const useZoom = ({ svgGetBBox, polygonGetBBox, onZoomChange }) => {
           return;
         }
 
+        // SVGコンテナのサイズを取得
+        const svgWidth = svg.node().clientWidth;
+        const svgHeight = svg.node().clientHeight;
+
         // ノードの位置を取得
         const nodeBox = node.node().getBBox();
         const nodeCenterX = nodeBox.x + nodeBox.width / 2;
         const nodeCenterY = nodeBox.y + nodeBox.height / 2;
 
-        // 必要な新しい中心座標を計算
+        // グラフの座標系補正（負のY座標の処理）
+        const yOffset = polygonGetBBox.y < 0 ? Math.abs(polygonGetBBox.y) : 0;
+        const hasNegativeY = polygonGetBBox.y < 0;
+
+        // ノードフォーカス用のスケール
         const zoomScale = ZOOM_SETTINGS.nodeZoomScale;
-        const translateX = svgGetBBox.width / 2 - nodeCenterX * zoomScale;
-        const translateY = svgGetBBox.height / 2 - nodeCenterY * zoomScale;
+
+        // トランスフォーム計算の大幅な修正
+        // このzoom関数は既にD3に設定された現在のトランスフォームを考慮します
+        const currentTransform = d3.zoomTransform(svg.node());
+
+        // 必要な新しい中心座標を計算
+        let targetX = nodeCenterX;
+        let targetY = nodeCenterY;
+
+        // 負のY座標がある場合の補正
+        if (hasNegativeY) {
+          targetY = nodeCenterY - yOffset;
+        }
+
+        // 中心に配置するためのtranslateを計算
+        const translateX = svgWidth / 2 - targetX * zoomScale;
+        const translateY = svgHeight / 2 - targetY * zoomScale;
 
         // デバッグログ
         console.log(`ノード「${nodeId}」へのズーム:`, {
@@ -187,6 +210,9 @@ export const useZoom = ({ svgGetBBox, polygonGetBBox, onZoomChange }) => {
           nodeBox,
           nodeCenterX,
           nodeCenterY,
+          yOffset,
+          hasNegativeY,
+          currentTransform: currentTransform.toString(),
         });
 
         // 新しいtransformを作成して適用
