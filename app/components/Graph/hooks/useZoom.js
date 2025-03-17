@@ -9,41 +9,33 @@ import { ZOOM_SETTINGS } from "../constant";
  * @param {Object} options.polygonGetBBox - グラフポリゴンバウンディングボックス
  * @return {Object} ズームユーティリティと状態
  */
-export const useZoom = ({ svgGetBBox, polygonGetBBox, onZoomChange }) => {
+export const useZoom = ({ svgGetBBox, polygonGetBBox }) => {
   const zoomRef = useRef(null);
   const svgRef = useRef(null);
   const initializedRef = useRef(false);
   const [currentZoom, setCurrentZoom] = useState(1);
 
   // ズームの初期化
-  const initializeZoom = useCallback(
-    (svg) => {
-      console.log("ズーム機能の初期化開始");
+  const initializeZoom = useCallback((svg) => {
+    console.log("ズーム機能の初期化開始");
 
-      // SVG参照を保存
-      svgRef.current = svg;
+    // SVG参照を保存
+    svgRef.current = svg;
 
-      const zoom = d3.zoom().on("zoom", (event) => {
-        svg.select("g").attr("transform", event.transform);
-        setCurrentZoom(event.transform.k);
+    const zoom = d3.zoom().on("zoom", (event) => {
+      svg.select("g").attr("transform", event.transform);
+      setCurrentZoom(event.transform.k);
+    });
 
-        // ズーム変更時に onZoomChange を呼び出す
-        if (typeof onZoomChange === "function") {
-          onZoomChange(event.transform);
-        }
-      });
+    // 初期変換を設定（予期しない動作を避けるためにidentity）
+    svg.call(zoom.transform, d3.zoomIdentity);
+    svg.call(zoom);
+    zoomRef.current = zoom;
+    initializedRef.current = true;
 
-      // 初期変換を設定（予期しない動作を避けるためにidentity）
-      svg.call(zoom.transform, d3.zoomIdentity);
-      svg.call(zoom);
-      zoomRef.current = zoom;
-      initializedRef.current = true;
-
-      console.log("ズーム機能の初期化完了");
-      return zoom;
-    },
-    [onZoomChange]
-  );
+    console.log("ズーム機能の初期化完了");
+    return zoom;
+  }, []);
 
   // 継続的なズーム変更を防ぐために初期化状態を追跡
   useEffect(() => {
@@ -68,33 +60,48 @@ export const useZoom = ({ svgGetBBox, polygonGetBBox, onZoomChange }) => {
       const svg = svgRef.current;
       const g = svg.select("g");
 
+      // グラフを一度透明にする
       g.style("opacity", 0);
 
+      // 負のY座標がある場合、それを補正
       const yOffset = polygonGetBBox.y < 0 ? Math.abs(polygonGetBBox.y) : 0;
       const xOffset = polygonGetBBox.x < 0 ? Math.abs(polygonGetBBox.x) : 0;
 
+      console.log(
+        `グラフ座標系の分析: {x: ${xOffset}, y: ${yOffset}, yNegative: ${
+          polygonGetBBox.y < 0
+        }}`
+      );
+
+      // 余白を追加
       const padding = ZOOM_SETTINGS.padding;
       const scale = 1.0;
 
+      // 変換を計算 - 単純に余白とオフセットを適用
       const translateX = padding + xOffset;
       const translateY = padding + yOffset;
 
+      console.log("ズームリセット: ", {
+        translateX,
+        translateY,
+        scale,
+        xOffset,
+        yOffset,
+      });
+
+      // 変換を適用
       const transform = d3.zoomIdentity
         .translate(translateX, translateY)
         .scale(scale);
 
       svg.call(zoomRef.current.transform, transform);
 
-      // 変換後に onZoomChange を呼び出す
-      if (typeof onZoomChange === "function") {
-        onZoomChange(transform);
-      }
-
+      // フェードインアニメーション
       g.transition().duration(1000).style("opacity", 1);
     } catch (error) {
       console.error("handleResetでエラー:", error);
     }
-  }, [polygonGetBBox, onZoomChange]); // 依存関係に onZoomChange を追加
+  }, [polygonGetBBox]);
 
   // ズームイン機能
   const handleZoomIn = useCallback(() => {
@@ -225,16 +232,11 @@ export const useZoom = ({ svgGetBBox, polygonGetBBox, onZoomChange }) => {
           .transition()
           .duration(750)
           .call(zoomRef.current.transform, newTransform);
-
-        // 変換後に onZoomChange を呼び出す
-        if (typeof onZoomChange === "function") {
-          onZoomChange(newTransform);
-        }
       } catch (error) {
         console.error(`ノード「${nodeId}」へのズーム処理でエラー:`, error);
       }
     },
-    [polygonGetBBox, onZoomChange]
+    [polygonGetBBox]
   );
 
   return {
