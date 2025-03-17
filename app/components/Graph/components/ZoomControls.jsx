@@ -14,14 +14,15 @@ const ZoomControls = ({ onZoomIn, onZoomOut }) => {
   return (
     <Box
       sx={{
-        position: "absolute",
-        top: 10,
-        right: 10,
+        position: "fixed",
+        top: "160px",
+        bottom: "auto",
+        right: "60px",
         backgroundColor: "white",
         borderRadius: "4px",
+        zIndex: 1000,
         boxShadow: "0 2px 6px rgba(0,0,0,0.3)",
-        display: "flex",
-        flexDirection: "column",
+        // その他のスタイルはそのまま
       }}
     >
       <IconButton onClick={onZoomIn} size="small">

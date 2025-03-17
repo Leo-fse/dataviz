@@ -32,7 +32,7 @@ export const ZOOM_SETTINGS = {
   blinkDuration: 4000,
   blinkInterval: 500,
   padding: 0, // グラフ表示時の余白
-  initialPadding: 0, // 初期表示時の余白
+  initialPadding: 5, // 初期表示時の余白
 };
 // パネルのスタイル関連の定数
 export const PANEL_STYLES = {

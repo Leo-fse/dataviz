@@ -65,7 +65,14 @@ const dot = `digraph {
 
 export default function GraphvizPage() {
   return (
-    <Box sx={{ height: "calc(100vh - 100px)" }}>
+    <Box
+      sx={{
+        height: "calc(100vh - 130px)", // 親コンテナの高さを少し小さく調整
+        display: "flex",
+        flexDirection: "column",
+        overflow: "hidden", // 親要素からはみ出させない
+      }}
+    >
       <Graph dot={dot} />
     </Box>
   );

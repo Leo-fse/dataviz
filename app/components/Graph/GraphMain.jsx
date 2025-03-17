@@ -92,7 +92,7 @@ export const Graph = ({ dot }) => {
       const svg = d3.select(graphRef.current).select("svg");
       // SVGのスタイル設定
       svg.style("background-color", "lightgray");
-      svg.style("border", "1px dotted gray");
+      // svg.style("border", "1px dotted gray");
 
       setSvgElement(svg);
 
@@ -148,9 +148,6 @@ export const Graph = ({ dot }) => {
     return () => clearTimeout(timer);
   }, [graphInitialized, svgGetBBox, polygonGetBBox, handleReset]);
 
-  // GraphMain.jsx の変更部分
-
-  // グラフコンテナスタイルを更新
   return (
     <div>
       {/* ノード選択ドロップダウンとリセットボタン */}
@@ -166,9 +163,10 @@ export const Graph = ({ dot }) => {
         sx={{
           position: "relative",
           width: "100%",
-          height: "calc(100vh - 150px)", // 上部のナビとセレクターのスペースを差し引いた高さ
+          height: "calc(100vh - 200px)", // 上部余白をさらに増やす
+          minHeight: "380px", // 最小高さを保証
           border: "1px solid #ccc",
-          overflow: "auto", // スクロール可能に設定
+          overflow: "auto", // スクロール可能に維持
         }}
       >
         {/* メイングラフ */}
@@ -193,8 +191,8 @@ export const Graph = ({ dot }) => {
         ))}
 
         {/* ズームコントロール */}
-        <ZoomControls onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} />
       </Box>
+      <ZoomControls onZoomIn={handleZoomIn} onZoomOut={handleZoomOut} />
     </div>
   );
 };
