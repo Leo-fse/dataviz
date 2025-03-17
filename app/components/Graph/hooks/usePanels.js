@@ -1,8 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import {
-  PANEL_OFFSET_PATTERN,
   DEFAULT_PANEL_SIZE,
   INITIAL_DRAG_STATE,
+  PANEL_STYLES,
 } from "../constant";
 
 /**
@@ -14,8 +14,14 @@ export const usePanels = () => {
   const [nodeDetailsPanels, setNodeDetailsPanels] = useState([]);
   const [dragState, setDragState] = useState(INITIAL_DRAG_STATE);
 
-  // Track panel positioning and z-index
-  const currentPanelIndexRef = useRef(0);
+  // 最後に表示したパネルの位置を記録
+  const lastPanelPositionRef = useRef({ x: 20, y: 20 });
+
+  // パネルのヘッダーの高さ - CSSから取得するか定数化するとよい
+  // NodeDetailsPanelコンポーネントのヘッダー高さに合わせて調整
+  const PANEL_HEADER_HEIGHT = 48; // px (paddingやborderを含む)
+
+  // Track z-index
   const zIndexManagerRef = useRef({
     currentMaxZIndex: 0,
     getNextZIndex: function () {
@@ -67,6 +73,33 @@ export const usePanels = () => {
     [handleBringToFront]
   );
 
+  // 新しいパネルの位置を計算
+  const calculateNewPanelPosition = useCallback(() => {
+    // 最後に表示したパネルの位置から少しずらす
+    const newPosition = {
+      x: lastPanelPositionRef.current.x + 20, // 横方向に少しずらす
+      y: lastPanelPositionRef.current.y + PANEL_HEADER_HEIGHT, // ヘッダー分だけ下げる
+    };
+
+    // 画面からはみ出さないように調整
+    const maxX = window.innerWidth - DEFAULT_PANEL_SIZE.width - 40; // 余白を考慮
+    const maxY = window.innerHeight - DEFAULT_PANEL_SIZE.height - 40; // 余白を考慮
+
+    // 画面右端や下端に達したら左上に戻す
+    if (newPosition.x > maxX) {
+      newPosition.x = 100;
+    }
+
+    if (newPosition.y > maxY) {
+      newPosition.y = 100;
+    }
+
+    // 最後のパネル位置を更新
+    lastPanelPositionRef.current = newPosition;
+
+    return newPosition;
+  }, []);
+
   // Create a new node details panel
   const createNewNodeDetailsPanel = useCallback(
     (nodeId) => {
@@ -85,13 +118,8 @@ export const usePanels = () => {
         return;
       }
 
-      // Get position for new panel
-      const positionIndex = currentPanelIndexRef.current;
-      const position = PANEL_OFFSET_PATTERN[positionIndex];
-
-      // Update position index for next panel
-      currentPanelIndexRef.current =
-        (currentPanelIndexRef.current + 1) % PANEL_OFFSET_PATTERN.length;
+      // 新しいパネルの位置を計算
+      const position = calculateNewPanelPosition();
 
       // Create panel with highest z-index
       const newZIndex = zIndexManagerRef.current.getNextZIndex();
@@ -103,10 +131,7 @@ export const usePanels = () => {
         title: `Node ${nodeId}`,
         description: `Details for node ${nodeId}. Additional information can be added here.`,
         connections: getNodeConnections(nodeId),
-        position: {
-          x: position.x,
-          y: position.y,
-        },
+        position: position,
         size: DEFAULT_PANEL_SIZE,
         minimized: false,
         zIndex: newZIndex,
@@ -118,7 +143,7 @@ export const usePanels = () => {
 
       return nodeInfo;
     },
-    [activatePanel, getNodeConnections]
+    [activatePanel, getNodeConnections, calculateNewPanelPosition]
   );
 
   // Close a panel
@@ -232,6 +257,16 @@ export const usePanels = () => {
   // Handle mouse up event (end drag/resize)
   const handleMouseUp = useCallback(() => {
     if (dragState.isPanelDragging || dragState.isResizing) {
+      // ドラッグ終了時に最後のパネル位置を更新
+      if (dragState.isPanelDragging && dragState.activePanel) {
+        const panel = panelsRef.current.find(
+          (p) => p.id === dragState.activePanel
+        );
+        if (panel) {
+          lastPanelPositionRef.current = { ...panel.position };
+        }
+      }
+
       setDragState({
         ...dragState,
         isPanelDragging: false,
@@ -245,7 +280,7 @@ export const usePanels = () => {
   const resetPanels = useCallback(() => {
     panelsRef.current = [];
     setNodeDetailsPanels([]);
-    currentPanelIndexRef.current = 0;
+    lastPanelPositionRef.current = { x: 100, y: 100 }; // 初期位置にリセット
     zIndexManagerRef.current.currentMaxZIndex = 0;
   }, []);
 
