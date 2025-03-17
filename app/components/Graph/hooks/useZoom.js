@@ -44,7 +44,7 @@ export const useZoom = ({ svgGetBBox, polygonGetBBox }) => {
     };
   }, []);
 
-  // デフォルトビューにリセット - フェードインアニメーション
+  // デフォルトビューにリセット - SVGの左上を起点として表示
   const handleReset = useCallback(() => {
     if (
       !svgGetBBox ||
@@ -60,21 +60,15 @@ export const useZoom = ({ svgGetBBox, polygonGetBBox }) => {
     try {
       const svg = svgRef.current;
       const g = svg.select("g");
-      const graphCenterX = polygonGetBBox.x - svgGetBBox.x;
-      const graphCenterY = polygonGetBBox.y - svgGetBBox.y;
 
-      console.log("ズームリセット (フェードイン): ", {
-        graphCenterX,
-        graphCenterY,
-      });
+      console.log("ズームリセット (左上起点)");
 
       // グラフを一度透明にする
       g.style("opacity", 0);
 
-      // 位置を設定
-      const transform = d3.zoomIdentity
-        .translate(-graphCenterX, -graphCenterY)
-        .scale(1);
+      // SVGの左上を起点として表示位置を合わせる
+      // 原点に移動し、スケールを1に設定
+      const transform = d3.zoomIdentity.scale(1);
 
       svg.call(zoomRef.current.transform, transform);
 

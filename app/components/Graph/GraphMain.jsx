@@ -81,6 +81,8 @@ export const Graph = ({ dot }) => {
 
     const gviz = graphviz(graphRef.current, {
       useWorker: false,
+      fit: true, // グラフをSVGにフィットさせる
+      center: false, // 中央揃えをオフにする - 左上起点を保持
     }).renderDot(dot);
 
     gviz.on("end", () => {
@@ -93,6 +95,14 @@ export const Graph = ({ dot }) => {
       svg.style("background-color", "lightgray");
       svg.style("border", "2px solid black");
       svg.style("width", "100%");
+
+      // 明示的に左上から描画されるようにビューボックスを設定
+      const originalViewBox = svg.attr("viewBox");
+      if (originalViewBox) {
+        const viewBoxValues = originalViewBox.split(" ").map(Number);
+        // 左上（0, 0）から始まるビューボックスを設定
+        svg.attr("viewBox", `0 0 ${viewBoxValues[2]} ${viewBoxValues[3]}`);
+      }
 
       // グラフからノードを抽出
       const nodeNames = extractNodes(graphRef.current);
@@ -130,7 +140,6 @@ export const Graph = ({ dot }) => {
     initializeZoom,
     graphInitialized,
   ]);
-
   // グラフが初期化され、バウンディングボックスが設定された後にリセットを処理
   useEffect(() => {
     if (!graphInitialized || !svgGetBBox || !polygonGetBBox) return;
