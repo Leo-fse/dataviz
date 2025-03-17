@@ -79,10 +79,13 @@ export const Graph = ({ dot }) => {
 
     console.log("DOTデータを使用してグラフを初期化中");
 
+    // GraphvizをSVGに直接レンダリング
     const gviz = graphviz(graphRef.current, {
       useWorker: false,
       fit: true, // グラフをSVGにフィットさせる
-      center: false, // 中央揃えをオフにする - 左上起点を保持
+      scale: 1.0, // 標準スケール
+      width: "100%", // 幅を親要素に合わせる
+      height: "auto", // 高さを自動調整
     }).renderDot(dot);
 
     gviz.on("end", () => {
@@ -95,14 +98,11 @@ export const Graph = ({ dot }) => {
       svg.style("background-color", "lightgray");
       svg.style("border", "2px solid black");
       svg.style("width", "100%");
+      svg.style("height", "auto");
 
-      // 明示的に左上から描画されるようにビューボックスを設定
-      const originalViewBox = svg.attr("viewBox");
-      if (originalViewBox) {
-        const viewBoxValues = originalViewBox.split(" ").map(Number);
-        // 左上（0, 0）から始まるビューボックスを設定
-        svg.attr("viewBox", `0 0 ${viewBoxValues[2]} ${viewBoxValues[3]}`);
-      }
+      // SVGを初期位置から表示
+      // この時点では負の座標を持つかもしれないので、
+      // viewBoxは後でズーム関数が適切に調整する
 
       // グラフからノードを抽出
       const nodeNames = extractNodes(graphRef.current);
@@ -110,6 +110,9 @@ export const Graph = ({ dot }) => {
 
       // バウンディングボックスを取得
       const svgBox = svg.node().getBBox();
+      console.log("SVG BBox:", svgBox);
+
+      // Polygonを検出（グラフの境界を表す要素）
       const polygonElement = svg.select("polygon");
 
       if (polygonElement.empty()) {
@@ -118,8 +121,6 @@ export const Graph = ({ dot }) => {
       }
 
       const polygonBox = polygonElement.node().getBBox();
-
-      console.log("SVG BBox:", svgBox);
       console.log("Polygon BBox:", polygonBox);
 
       setSvgGetBBox(svgBox);
@@ -140,6 +141,34 @@ export const Graph = ({ dot }) => {
     initializeZoom,
     graphInitialized,
   ]);
+
+  // 初期化後のリセット処理はもう少し早く実行
+  useEffect(() => {
+    if (!graphInitialized || !svgGetBBox || !polygonGetBBox) return;
+
+    console.log("グラフ初期化後の初期リセットを実行中");
+
+    // 設定が完了したら即座にリセットを適用
+    const timer = setTimeout(() => {
+      handleReset();
+    }, 50); // 100msから50msに短縮
+
+    return () => clearTimeout(timer);
+  }, [graphInitialized, svgGetBBox, polygonGetBBox, handleReset]);
+
+  // 初期化後のリセット処理も高速化
+  useEffect(() => {
+    if (!graphInitialized || !svgGetBBox || !polygonGetBBox) return;
+
+    console.log("グラフ初期化後の初期リセットを実行中");
+    // リセットのタイミングを早める
+    const timer = setTimeout(() => {
+      handleReset();
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, [graphInitialized, svgGetBBox, polygonGetBBox, handleReset]);
+
   // グラフが初期化され、バウンディングボックスが設定された後にリセットを処理
   useEffect(() => {
     if (!graphInitialized || !svgGetBBox || !polygonGetBBox) return;

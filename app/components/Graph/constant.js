@@ -31,8 +31,9 @@ export const ZOOM_SETTINGS = {
   nodeZoomScale: 2.0,
   blinkDuration: 4000,
   blinkInterval: 500,
+  padding: 5, // グラフ表示時の余白
+  initialPadding: 5, // 初期表示時の余白
 };
-
 // パネルのスタイル関連の定数
 export const PANEL_STYLES = {
   minWidth: 200,
