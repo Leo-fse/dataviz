@@ -76,33 +76,25 @@ export const Graph = ({ dot }) => {
   // グラフを初期化してイベントハンドラを設定
   useEffect(() => {
     if (!graphRef.current || graphInitialized) return;
-
     console.log("DOTデータを使用してグラフを初期化中");
-
     // GraphvizをSVGに直接レンダリング
     const gviz = graphviz(graphRef.current, {
       useWorker: false,
       fit: true, // グラフをSVGにフィットさせる
       scale: 1.0, // 標準スケール
       width: "100%", // 幅を親要素に合わせる
-      height: "auto", // 高さを自動調整
+      height: "100%", // 高さを親要素に合わせる
     }).renderDot(dot);
 
     gviz.on("end", () => {
       console.log("グラフのレンダリングが完了しました");
 
       const svg = d3.select(graphRef.current).select("svg");
-      setSvgElement(svg);
-
       // SVGのスタイル設定
       svg.style("background-color", "lightgray");
-      svg.style("border", "2px solid black");
-      svg.style("width", "100%");
-      svg.style("height", "auto");
+      svg.style("border", "1px dotted gray");
 
-      // SVGを初期位置から表示
-      // この時点では負の座標を持つかもしれないので、
-      // viewBoxは後でズーム関数が適切に調整する
+      setSvgElement(svg);
 
       // グラフからノードを抽出
       const nodeNames = extractNodes(graphRef.current);
@@ -167,10 +159,9 @@ export const Graph = ({ dot }) => {
       />
 
       {/* グラフコンテナ */}
-      <Box sx={{ position: "relative" }}>
+      <Box sx={{ position: "relative", width: "100%", height: "100%j" }}>
         {/* メイングラフ */}
-        <div ref={graphRef} style={{ width: "100%" }} />
-
+        <div ref={graphRef} />
         {/* ノード詳細パネル */}
         {nodeDetailsPanels.map((panel) => (
           <NodeDetailsPanel

@@ -29,8 +29,8 @@ export default function RootLayout({ children }) {
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <NavTabs />
-        <div className="p-4">
+        <div className="p-4 h-full">
+          <NavTabs />
           <Paper elevation={5}>
             <div className="p-4">{children}</div>
           </Paper>
