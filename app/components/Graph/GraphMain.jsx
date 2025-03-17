@@ -102,7 +102,6 @@ export const Graph = ({ dot }) => {
 
       // バウンディングボックスを取得
       const svgBox = svg.node().getBBox();
-      console.log("SVG BBox:", svgBox);
 
       // Polygonを検出（グラフの境界を表す要素）
       const polygonElement = svg.select("polygon");
@@ -113,7 +112,13 @@ export const Graph = ({ dot }) => {
       }
 
       const polygonBox = polygonElement.node().getBBox();
+
+      console.log("SVG BBox:", svgBox);
       console.log("Polygon BBox:", polygonBox);
+      console.log(
+        "d3.zoomTransform(svg.node()):",
+        d3.zoomTransform(svg.node())
+      );
 
       setSvgGetBBox(svgBox);
       setPolygonGetBBox(polygonBox);
