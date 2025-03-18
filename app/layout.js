@@ -30,22 +30,8 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-        style={{ height: "100vh", overflow: "hidden" }} // bodyの高さを固定
       >
-        <div className="p-4 h-full flex flex-col overflow-hidden">
-          <NavTabs />
-          <Paper
-            elevation={5}
-            sx={{
-              flexGrow: 1,
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-            }}
-          >
-            <div className="p-4 flex-grow overflow-hidden">{children}</div>
-          </Paper>
-        </div>
+        {children}
       </body>
     </html>
   );

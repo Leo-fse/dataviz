@@ -25,14 +25,14 @@ const dot = `digraph {
   O [id="O"];
   P [id="P"];
   Q [id="Q"];
-  R [id="R"];
-  S [id="S"];
-  T [id="T"];
-  U [id="U"];
-  V [id="V"];
-  W [id="W"];
-  X [id="X"];
-  Y [id="Y"];
+  // R [id="R"];
+  // S [id="S"];
+  // T [id="T"];
+  // U [id="U"];
+  // V [id="V"];
+  // W [id="W"];
+  // X [id="X"];
+  // Y [id="Y"];
   Z [id="Z"];
   AA [id="AA"];
   AB [id="AB"];
@@ -64,16 +64,5 @@ const dot = `digraph {
 }`;
 
 export default function GraphvizPage() {
-  return (
-    <Box
-      sx={{
-        height: "calc(100vh - 130px)", // 親コンテナの高さを少し小さく調整
-        display: "flex",
-        flexDirection: "column",
-        overflow: "hidden", // 親要素からはみ出させない
-      }}
-    >
-      <Graph dot={dot} />
-    </Box>
-  );
+  return <Graph dot={dot} />;
 }

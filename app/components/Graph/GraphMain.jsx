@@ -23,8 +23,11 @@ import NodeDetailsPanel from "./components/NodeDetailsPanel";
  */
 export const Graph = ({ dot }) => {
   const graphRef = useRef(null);
+  const boxRef = useRef(null);
+
   const [svgGetBBox, setSvgGetBBox] = useState(null);
   const [polygonGetBBox, setPolygonGetBBox] = useState(null);
+  const [iniTransform, setIniTransform] = useState(null);
   const [graphInitialized, setGraphInitialized] = useState(false);
   const [svgElement, setSvgElement] = useState(null);
 
@@ -39,7 +42,7 @@ export const Graph = ({ dot }) => {
     handleZoomIn,
     handleZoomOut,
     zoomToNode,
-  } = useZoom({ svgGetBBox, polygonGetBBox });
+  } = useZoom({ svgGetBBox, polygonGetBBox, iniTransform });
 
   const {
     nodeDetailsPanels,
@@ -81,9 +84,9 @@ export const Graph = ({ dot }) => {
     const gviz = graphviz(graphRef.current, {
       useWorker: false,
       fit: true, // グラフをSVGにフィットさせる
-      scale: 1.0, // 標準スケール
       width: "100%", // 幅を親要素に合わせる
       height: "100%", // 高さを親要素に合わせる
+      scale: 1.0, // 標準スケール
     }).renderDot(dot);
 
     gviz.on("end", () => {
@@ -92,34 +95,39 @@ export const Graph = ({ dot }) => {
       const svg = d3.select(graphRef.current).select("svg");
       // SVGのスタイル設定
       svg.style("background-color", "lightgray");
-      // svg.style("border", "1px dotted gray");
+      svg.style("border", "1px solid gray");
 
       setSvgElement(svg);
 
-      // グラフからノードを抽出
-      const nodeNames = extractNodes(graphRef.current);
-      console.log(`${nodeNames.length}個のノードが見つかりました`);
-
       // バウンディングボックスを取得
       const svgBox = svg.node().getBBox();
-      console.log("SVG BBox:", svgBox);
+
+      // svg.attr("viewBox", "0 0 500 600");
 
       // Polygonを検出（グラフの境界を表す要素）
       const polygonElement = svg.select("polygon");
-
       if (polygonElement.empty()) {
         console.warn("ポリゴン要素が見つかりません");
         return;
       }
 
       const polygonBox = polygonElement.node().getBBox();
+      const initialTransform = d3.zoomTransform(svg.node());
+
+      console.log("SVG BBox:", svgBox);
       console.log("Polygon BBox:", polygonBox);
+      console.log("initialTransform:", initialTransform);
 
       setSvgGetBBox(svgBox);
       setPolygonGetBBox(polygonBox);
+      setIniTransform(initialTransform);
 
       // ズーム動作の設定
       const zoomBehavior = initializeZoom(svg);
+
+      // グラフからノードを抽出
+      const nodeNames = extractNodes(graphRef.current);
+      console.log(`${nodeNames.length}個のノードが見つかりました`);
 
       // ノードにクリックハンドラーを追加
       attachNodeClickHandlers(graphRef.current);
@@ -149,7 +157,7 @@ export const Graph = ({ dot }) => {
   }, [graphInitialized, svgGetBBox, polygonGetBBox, handleReset]);
 
   return (
-    <div>
+    <div className="p-8">
       {/* ノード選択ドロップダウンとリセットボタン */}
       <NodeSelector
         selectedNode={selectedNode}
@@ -160,10 +168,12 @@ export const Graph = ({ dot }) => {
 
       {/* グラフコンテナ - 高さと幅を固定し、オーバーフローをスクロールに設定 */}
       <Box
+        ref={boxRef}
         sx={{
           position: "relative",
           width: "100%",
-          height: "calc(100vh - 200px)", // 上部余白をさらに増やす
+          height: "calc(100vh - 220px)",
+
           minHeight: "380px", // 最小高さを保証
           border: "1px solid #ccc",
           overflow: "auto", // スクロール可能に維持
@@ -173,8 +183,9 @@ export const Graph = ({ dot }) => {
         <div
           ref={graphRef}
           style={{
-            minWidth: "100%",
-            minHeight: "100%",
+            width: "100%",
+            height: "100%",
+            padding: "10px", // グラフの周りに余白を追加
           }}
         />
 

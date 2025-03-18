@@ -28,7 +28,7 @@ export const ZOOM_SETTINGS = {
   zoomInFactor: 1.3,
   zoomOutFactor: 0.7,
   animationDuration: 300,
-  nodeZoomScale: 2.0,
+  nodeZoomScale: 4.0,
   blinkDuration: 4000,
   blinkInterval: 500,
   padding: 0, // グラフ表示時の余白

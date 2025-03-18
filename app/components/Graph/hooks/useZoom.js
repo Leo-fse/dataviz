@@ -9,7 +9,7 @@ import { ZOOM_SETTINGS } from "../constant";
  * @param {Object} options.polygonGetBBox - グラフポリゴンバウンディングボックス
  * @return {Object} ズームユーティリティと状態
  */
-export const useZoom = ({ svgGetBBox, polygonGetBBox }) => {
+export const useZoom = ({ svgGetBBox, polygonGetBBox, iniTransform }) => {
   const zoomRef = useRef(null);
   const svgRef = useRef(null);
   const initializedRef = useRef(false);
@@ -180,34 +180,23 @@ export const useZoom = ({ svgGetBBox, polygonGetBBox }) => {
         const svgWidth = svg.node().clientWidth;
         const svgHeight = svg.node().clientHeight;
 
+        console.log("svgWidth:", svgWidth, "svgHeight:", svgHeight);
+
+        const svgCenterX = svgGetBBox.x + svgGetBBox.width / 2;
+        const svgCenterY = -svgGetBBox.y + svgGetBBox.height / 2;
+
+        console.log("svgCenterX:", svgCenterX, "svgCenterY:", svgCenterY);
+        console.log(svgGetBBox);
+
         // ノードの位置を取得
         const nodeBox = node.node().getBBox();
         const nodeCenterX = nodeBox.x + nodeBox.width / 2;
         const nodeCenterY = nodeBox.y + nodeBox.height / 2;
+        console.log("nodeCenterX:", nodeCenterX, "nodeCenterY:", nodeCenterY);
 
-        // グラフの座標系補正（負のY座標の処理）
-        const yOffset = polygonGetBBox.y < 0 ? Math.abs(polygonGetBBox.y) : 0;
-        const hasNegativeY = polygonGetBBox.y < 0;
-
-        // ノードフォーカス用のスケール
         const zoomScale = ZOOM_SETTINGS.nodeZoomScale;
-
-        // トランスフォーム計算の大幅な修正
-        // このzoom関数は既にD3に設定された現在のトランスフォームを考慮します
-        const currentTransform = d3.zoomTransform(svg.node());
-
-        // 必要な新しい中心座標を計算
-        let targetX = nodeCenterX;
-        let targetY = nodeCenterY;
-
-        // 負のY座標がある場合の補正
-        if (hasNegativeY) {
-          targetY = nodeCenterY - yOffset;
-        }
-
-        // 中心に配置するためのtranslateを計算
-        const translateX = svgWidth / 2 - targetX * zoomScale;
-        const translateY = svgHeight / 2 - targetY * zoomScale;
+        const translateX = svgCenterX - nodeCenterX;
+        const translateY = svgCenterY - nodeCenterY;
 
         // デバッグログ
         console.log(`ノード「${nodeId}」へのズーム:`, {
@@ -217,14 +206,23 @@ export const useZoom = ({ svgGetBBox, polygonGetBBox }) => {
           nodeBox,
           nodeCenterX,
           nodeCenterY,
-          yOffset,
-          hasNegativeY,
-          currentTransform: currentTransform.toString(),
+          // yOffset,
+          // hasNegativeY,
+          // currentTransform: currentTransform.toString(),
         });
 
         // 新しいtransformを作成して適用
+        console.log("iniTransform", iniTransform);
+        console.log(
+          "d3.zoomTransform(svg.node())",
+          d3.zoomTransform(svg.node())
+        );
+
         const newTransform = d3.zoomIdentity
-          .translate(translateX, translateY)
+          .translate(
+            iniTransform.x + (svgCenterX - nodeCenterX * zoomScale),
+            iniTransform.y - (svgCenterY + nodeCenterY * zoomScale)
+          )
           .scale(zoomScale);
 
         // 滑らかなトランジションでズーム適用
