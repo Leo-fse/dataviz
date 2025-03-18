@@ -102,8 +102,6 @@ export const Graph = ({ dot }) => {
       // バウンディングボックスを取得
       const svgBox = svg.node().getBBox();
 
-      svg.attr("viewBox", "500 0 500 600");
-
       // Polygonを検出（グラフの境界を表す要素）
       const polygonElement = svg.select("polygon");
       if (polygonElement.empty()) {
@@ -176,7 +174,6 @@ export const Graph = ({ dot }) => {
 
           minHeight: "380px", // 最小高さを保証
           // border: "1px solid #ccc",
-          overflow: "auto", // スクロール可能に維持
         }}
       >
         {/* メイングラフ */}
