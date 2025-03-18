@@ -34,7 +34,7 @@ const dot = `digraph {
   // X [id="X"];
   // Y [id="Y"];
   Z [id="Z"];
-  AA [id="AA"];
+  AA [id="AA", fillcolor="#7bca80", style="filled"];
   AB [id="AB"];
   AC [id="AC"];
   AD [id="AD"];
