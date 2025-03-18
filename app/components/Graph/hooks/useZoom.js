@@ -234,7 +234,7 @@ export const useZoom = ({ svgGetBBox, polygonGetBBox, iniTransform }) => {
         console.error(`ノード「${nodeId}」へのズーム処理でエラー:`, error);
       }
     },
-    [polygonGetBBox]
+    [polygonGetBBox, svgGetBBox, iniTransform]
   );
 
   return {

@@ -185,7 +185,7 @@ export const Graph = ({ dot }) => {
           style={{
             width: "100%",
             height: "100%",
-            padding: "10px", // グラフの周りに余白を追加
+            padding: "5px", // グラフの周りに余白を追加
           }}
         />
 

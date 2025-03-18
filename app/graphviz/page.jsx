@@ -49,6 +49,7 @@ const dot = `digraph {
   AM [id="AM"];
   A -> B;
   B -> C;
+  C -> E
   C -> D;
   D -> E;
   E -> F;
@@ -57,10 +58,20 @@ const dot = `digraph {
   H -> I;
   I -> J;
   J -> K;
+  AJ -> AI;
+  AH -> AG;
+  AG -> AF;
+  AF -> AE;
+  AE -> AD;
   B -> S;
+  AA -> B
   S -> R;
   R -> Q;
+  AK -> A;
   Q -> P;
+  Q -> E;
+  A -> AM;
+  AM -> AL;
 }`;
 
 export default function GraphvizPage() {
