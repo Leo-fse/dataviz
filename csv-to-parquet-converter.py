@@ -172,12 +172,41 @@ def process_single_csv(csv_path, dataset_path, all_metadata, process_df_func, ch
     # カスタムヘッダーを作成
     # 1列目は日時列で名前がないため、'timestamp'という名前を付ける
     custom_headers = ['timestamp']
+    
+    # 重複名のチェックと修正のための辞書
+    header_count = {}
+    
     for i in range(1, len(sensor_points)):
         # センサー点番とセンサー名を組み合わせた列名を作成
         header = f"{sensor_points[i]}_{sensor_names[i]}"
         # 特殊文字を除去（パーティショニングに影響するため）
         header = re.sub(r'[^\w]', '_', header)
+        
+        # 重複名の処理: 同じヘッダー名が既に存在する場合、連番を付ける
+        if header in header_count:
+            header_count[header] += 1
+            header = f"{header}_{header_count[header]}"
+        else:
+            header_count[header] = 0
+            
         custom_headers.append(header)
+    
+    # ヘッダーの重複チェック（デバッグ用）
+    if len(custom_headers) != len(set(custom_headers)):
+        print(f"警告: 重複するヘッダーが存在します: {[h for h in custom_headers if custom_headers.count(h) > 1]}")
+        # この時点で重複があるとエラーになるため、完全に重複を排除する
+        unique_headers = []
+        header_count = {}
+        
+        for h in custom_headers:
+            if h in header_count:
+                header_count[h] += 1
+                unique_headers.append(f"{h}_{header_count[h]}")
+            else:
+                header_count[h] = 0
+                unique_headers.append(h)
+        
+        custom_headers = unique_headers
     
     # メタデータを作成
     file_metadata = {
