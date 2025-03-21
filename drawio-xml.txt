@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" modified="2025-03-21T00:00:00.000Z" agent="Mozilla/5.0" version="15.8.3" etag="sKGl6s8vbghs9wq3V5cN" type="device">
+  <diagram id="prtHgNgQTEPvFCAcTncT" name="データフロー図">
+    <mxGraphModel dx="1422" dy="798" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
+      <root>
+        <mxCell id="0"/>
+        <mxCell id="1" parent="0"/>
+        
+        <!-- 会社枠 - E社 -->
+        <mxCell id="e_company_frame" value="E社" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e6f2ff;strokeColor=#0066CC;strokeWidth=2;fontSize=16;fontStyle=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=5;" parent="1" vertex="1">
+          <mxGeometry x="40" y="40" width="560" height="320" as="geometry"/>
+        </mxCell>
+        
+        <!-- 会社枠 - R社 -->
+        <mxCell id="r_company_frame" value="R社" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2e6;strokeColor=#FF8C00;strokeWidth=2;fontSize=16;fontStyle=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=5;" parent="1" vertex="1">
+          <mxGeometry x="40" y="380" width="360" height="120" as="geometry"/>
+        </mxCell>
+        
+        <!-- 会社枠 - S社 -->
+        <mxCell id="s_company_frame" value="S社" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e6ffe6;strokeColor=#009900;strokeWidth=2;fontSize=16;fontStyle=1;verticalAlign=top;align=left;spacingLeft=10;spacingTop=5;" parent="1" vertex="1">
+          <mxGeometry x="420" y="380" width="360" height="120" as="geometry"/>
+        </mxCell>
+        
+        <!-- 1. データ収集・蓄積 -->
+        <mxCell id="data_collection" value="1. データ収集&#xa;各種システムから&#xa;データ蓄積" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;align=center;" parent="1" vertex="1">
+          <mxGeometry x="70" y="100" width="160" height="80" as="geometry"/>
+        </mxCell>
+        
+        <!-- 2. データ加工・整理・集計・分析 -->
+        <mxCell id="data_processing" value="2. データ加工&#xa;整理・集計&#xa;分析対応" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;align=center;" parent="1" vertex="1">
+          <mxGeometry x="290" y="100" width="160" height="80" as="geometry"/>
+        </mxCell>
+        
+        <!-- 3. 将来予測用データ整形 -->
+        <mxCell id="data_formatting" value="3. 将来予測用&#xa;データ整形加工" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;align=center;" parent="1" vertex="1">
+          <mxGeometry x="70" y="240" width="160" height="80" as="geometry"/>
+        </mxCell>
+        
+        <!-- 4. 予測ロジック部門へのデータ連携 -->
+        <mxCell id="data_transfer" value="4. 予測ロジック&#xa;部門へのデータ連携" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;align=center;" parent="1" vertex="1">
+          <mxGeometry x="290" y="240" width="160" height="80" as="geometry"/>
+        </mxCell>
+        
+        <!-- 予測ロジック開発・実行 (R社) -->
+        <mxCell id="prediction_logic" value="予測ロジック開発&#xa;および処理実行" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;align=center;" parent="1" vertex="1">
+          <mxGeometry x="140" y="410" width="160" height="70" as="geometry"/>
+        </mxCell>
+        
+        <!-- 5. データ及び予測結果の可視化 (S社) -->
+        <mxCell id="data_visualization" value="5. データ及び&#xa;予測結果の可視化" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#000000;fontSize=12;align=center;" parent="1" vertex="1">
+          <mxGeometry x="520" y="410" width="160" height="70" as="geometry"/>
+        </mxCell>
+        
+        <!-- 矢印：1→2 -->
+        <mxCell id="arrow_1_to_2" value="" style="endArrow=classic;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;" parent="1" source="data_collection" target="data_processing" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="230" y="140" as="sourcePoint"/>
+            <mxPoint x="290" y="140" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- 矢印：2→3 -->
+        <mxCell id="arrow_2_to_3" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;" parent="1" source="data_processing" target="data_formatting" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="370" y="200" as="sourcePoint"/>
+            <mxPoint x="150" y="240" as="targetPoint"/>
+            <Array as="points">
+              <mxPoint x="370" y="210"/>
+              <mxPoint x="150" y="210"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- 矢印：3→4 -->
+        <mxCell id="arrow_3_to_4" value="" style="endArrow=classic;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;" parent="1" source="data_formatting" target="data_transfer" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="230" y="280" as="sourcePoint"/>
+            <mxPoint x="290" y="280" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- 矢印：4→R社 -->
+        <mxCell id="arrow_4_to_r" value="" style="endArrow=classic;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;" parent="1" source="data_transfer" target="prediction_logic" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="370" y="330" as="sourcePoint"/>
+            <mxPoint x="220" y="410" as="targetPoint"/>
+            <Array as="points">
+              <mxPoint x="370" y="350"/>
+              <mxPoint x="220" y="350"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- 矢印：R社→S社 -->
+        <mxCell id="arrow_r_to_s" value="" style="endArrow=classic;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;strokeWidth=2;" parent="1" source="prediction_logic" target="data_visualization" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="300" y="445" as="sourcePoint"/>
+            <mxPoint x="520" y="445" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- 矢印：2→S社 (データ直接連携) -->
+        <mxCell id="arrow_2_to_s_direct" value="生データ&#xa;直接連携" style="endArrow=classic;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;strokeWidth=2;dashed=1;labelPosition=right;verticalLabelPosition=middle;align=left;verticalAlign=middle;" parent="1" source="data_processing" target="data_visualization" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="450" y="140" as="sourcePoint"/>
+            <mxPoint x="600" y="440" as="targetPoint"/>
+            <Array as="points">
+              <mxPoint x="600" y="140"/>
+              <mxPoint x="600" y="350"/>
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        
+        <!-- 凡例 -->
+        <mxCell id="legend_frame" value="凡例" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F9F9F9;strokeColor=#666666;fontSize=12;fontStyle=1;align=center;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="620" y="60" width="160" height="110" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="legend_solid_line" value="" style="endArrow=none;html=1;strokeWidth=2;" parent="1" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="630" y="100" as="sourcePoint"/>
+            <mxPoint x="660" y="100" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="legend_solid_text" value="データフロー" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="670" y="90" width="100" height="20" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="legend_dashed_line" value="" style="endArrow=none;html=1;strokeWidth=2;dashed=1;" parent="1" edge="1">
+          <mxGeometry width="50" height="50" relative="1" as="geometry">
+            <mxPoint x="630" y="130" as="sourcePoint"/>
+            <mxPoint x="660" y="130" as="targetPoint"/>
+          </mxGeometry>
+        </mxCell>
+        
+        <mxCell id="legend_dashed_text" value="直接連携" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="670" y="120" width="100" height="20" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="legend_company" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e6f2ff;strokeColor=#0066CC;strokeWidth=1;" parent="1" vertex="1">
+          <mxGeometry x="630" y="150" width="20" height="10" as="geometry"/>
+        </mxCell>
+        
+        <mxCell id="legend_company_text" value="担当企業" style="text;html=1;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="670" y="145" width="100" height="20" as="geometry"/>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
