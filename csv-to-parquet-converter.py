@@ -34,6 +34,10 @@ def convert_csvs_to_parquet(
         CSVファイル名に含まれるべき文字列パターンのリスト (例: ['sensor', 'temperature'])
     chunk_size : int, optional
         大きなCSVファイルを処理する際のチャンクサイズ
+    encoding : str, optional
+        CSVファイルのエンコーディング
+    date_format : str, optional
+        タイムスタンプのフォーマット（例: '%Y/%m/%d %H:%M:%S'）
     """
     # 出力ディレクトリが存在しない場合は作成
     os.makedirs(output_dir, exist_ok=True)
@@ -57,26 +61,7 @@ def convert_csvs_to_parquet(
     # 処理関数
     def process_df(df, file_metadata):
         nonlocal total_rows
-        
-        # 処理前のデータフレーム確認
-        print(f"処理前のデータフレーム先頭部分:")
-        print(df.head(2))
-        print(f"データフレーム列名: {df.columns.tolist()}")
-        
-        # データフレームの列数がヘッダー数と一致するか確認
-        if len(df.columns) != len(custom_headers):
-            print(f"警告: カラム数不一致 - データフレーム: {len(df.columns)}, ヘッダー: {len(custom_headers)}")
-            # 必要に応じて修正する（列の追加や削除など）
-        
-        # 最初の列がタイムスタンプであることを確認
-        if 'timestamp' not in df.columns:
-            print("警告: 'timestamp'列がありません。最初の列を'timestamp'として処理します。")
-            # 最初の列をタイムスタンプとして扱う
-            df = df.rename(columns={df.columns[0]: 'timestamp'})
-        
-        # 1列目を日時型に変換
-        try:
-            df['timestamp'] = pd.to_datetime(df['timestamp'])
+
             
             # パーティショニング用の列を作成
             df['year'] = df['timestamp'].dt.year
@@ -115,8 +100,16 @@ def convert_csvs_to_parquet(
         print(f"処理中: {file_name}")
         try:
             # 単一ファイルを処理してパーティションに追加
-            process_single_csv(csv_file, dataset_path, all_metadata, process_df, chunk_size, encoding=encoding)
+            rows_processed = process_single_csv(
+                csv_file, 
+                dataset_path, 
+                all_metadata, 
+                None,  # process_df_funcは不要になった
+                chunk_size, 
+                encoding=encoding
+            )
             processed_files += 1
+            total_rows += rows_processed
         except Exception as e:
             print(f"エラー: {file_name} の処理中に問題が発生しました - {str(e)}")
             skipped_files += 1
@@ -143,8 +136,16 @@ def convert_csvs_to_parquet(
                             extracted_path = os.path.join(temp_dir, zip_info.filename)
                             zip_ref.extract(zip_info.filename, temp_dir)
                             # 単一ファイルを処理してパーティションに追加
-                            process_single_csv(extracted_path, dataset_path, all_metadata, process_df, chunk_size, encoding=encoding)
+                            rows_processed = process_single_csv(
+                                extracted_path, 
+                                dataset_path, 
+                                all_metadata, 
+                                None,  # process_df_funcは不要になった
+                                chunk_size, 
+                                encoding=encoding
+                            )
                             processed_files += 1
+                            total_rows += rows_processed
                     except Exception as e:
                         print(f"エラー: {zip_info.filename} の処理中に問題が発生しました - {str(e)}")
                         skipped_files += 1
@@ -230,7 +231,8 @@ def process_single_csv(csv_path, dataset_path, all_metadata, process_df_func, ch
         'sensor_points': sensor_points,
         'sensor_names': sensor_names,
         'units': units,
-        'processed_at': datetime.now().isoformat()
+        'processed_at': datetime.now().isoformat(),
+        'column_names': custom_headers  # カラム名をメタデータに保存
     }
     
     # センサー情報をメタデータに追加
@@ -251,10 +253,113 @@ def process_single_csv(csv_path, dataset_path, all_metadata, process_df_func, ch
     # パーティショニング列の定義
     partition_cols = ['year', 'month']
     
+    # 処理関数作成 (ここで特定のファイルのcustom_headersをクロージャとして保持)
+    def process_df_wrapper(df, metadata):
+        # 処理前のデータフレーム確認
+        print(f"処理前のデータフレーム先頭部分:")
+        print(df.head(2))
+        print(f"データフレーム列名: {df.columns.tolist()}")
+        
+        # データフレームの列数がヘッダー数と一致するか確認
+        if len(df.columns) != len(custom_headers):
+            print(f"警告: カラム数不一致 - データフレーム: {len(df.columns)}, ヘッダー: {len(custom_headers)}")
+            # 必要に応じて修正する（列の追加や削除など）
+        
+        # 最初の列がタイムスタンプであることを確認
+        if 'timestamp' not in df.columns:
+            print("警告: 'timestamp'列がありません。最初の列を'timestamp'として処理します。")
+            # 最初の列をタイムスタンプとして扱う
+            df = df.rename(columns={df.columns[0]: 'timestamp'})
+        
+        # タイムスタンプを日時型に変換
+        try:
+            # 日時を日時型に変換（日本語形式の日付対応）
+            if 'date_format' in metadata and metadata['date_format']:
+                # 指定されたフォーマットを使用
+                df['timestamp'] = pd.to_datetime(df['timestamp'], format=metadata['date_format'])
+            else:
+                # 推測モード
+                # サンプルデータを取得してフォーマットを推測
+                sample_dates = df['timestamp'].dropna().head(5).tolist()
+                
+                # 日付フォーマットのパターン
+                date_formats = [
+                    '%Y/%m/%d %H:%M:%S',  # 2024/11/21 0:00:00
+                    '%Y/%m/%d',           # 2024/11/21
+                    '%Y-%m-%d %H:%M:%S',  # 2024-11-21 00:00:00
+                    '%Y-%m-%d',           # 2024-11-21
+                    '%Y年%m月%d日 %H時%M分%S秒',
+                    '%Y年%m月%d日',
+                    '%m/%d/%Y %H:%M:%S',  # 米国形式
+                    '%d/%m/%Y %H:%M:%S'   # 欧州形式
+                ]
+                
+                # サンプルデータの表示（デバッグ用）
+                print(f"日付サンプル: {sample_dates[:3]}")
+                
+                # データフレームの最初の行を表示（デバッグ用）
+                print("DataFrame最初の3行:")
+                print(df.head(3))
+                print(f"DataFrame列名: {df.columns.tolist()}")
+                
+                # 各フォーマットを試す
+                detected_format = None
+                for fmt in date_formats:
+                    try:
+                        # 最初のサンプルで試す
+                        if len(sample_dates) > 0:
+                            pd.to_datetime(sample_dates[0], format=fmt)
+                            detected_format = fmt
+                            print(f"検出された日付フォーマット: {fmt}")
+                            break
+                    except:
+                        continue
+                
+                try:
+                    if detected_format:
+                        # 検出されたフォーマットを使用
+                        df['timestamp'] = pd.to_datetime(df['timestamp'], format=detected_format)
+                    else:
+                        # 検出できなかった場合は自動推測
+                        print("日付フォーマットを自動推測します")
+                        df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
+                except Exception as e:
+                    print(f"日付変換エラー: {str(e)}")
+                    # エラーが発生した場合、厳密でないパースを試みる
+                    df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce')
+            
+            # タイムスタンプの変換結果を確認
+            if pd.isna(df['timestamp']).all() or (df['timestamp'] < '1980-01-01').all():
+                print(f"警告: タイムスタンプの変換に問題がある可能性があります。最初の5つの値: {df['timestamp'].head(5).tolist()}")
+                # 問題が大きい場合はここで処理を停止することも考慮
+                # raise ValueError("タイムスタンプの変換に失敗しました")
+            
+            # パーティショニング用の列を作成
+            df['year'] = df['timestamp'].dt.year
+            df['month'] = df['timestamp'].dt.month
+            df['day'] = df['timestamp'].dt.day
+            df['hour'] = df['timestamp'].dt.hour
+            
+            # ファイル情報カラムを追加（追跡用）
+            df['source_file'] = metadata['original_file']
+            
+            # データ型のチェックと変換（数値型に変換）
+            for col in df.columns:
+                if col not in ['timestamp', 'year', 'month', 'day', 'hour', 'source_file']:
+                    try:
+                        df[col] = pd.to_numeric(df[col], errors='coerce')
+                    except:
+                        pass
+            
+            return df
+        except Exception as e:
+            print(f"データ処理中にエラーが発生しました: {str(e)}")
+            raise
+    
     # 大きなファイルの場合はチャンク処理
     if file_size > 100 * 1024 * 1024:  # 100MB以上
         for chunk in pd.read_csv(csv_path, skiprows=3, header=None, names=custom_headers, encoding=encoding, index_col=False, chunksize=chunk_size):
-            processed_chunk = process_df_func(chunk, file_metadata)
+            processed_chunk = process_df_wrapper(chunk, file_metadata)
             
             # PyArrowテーブルに変換
             table = pa.Table.from_pandas(processed_chunk)
@@ -269,7 +374,7 @@ def process_single_csv(csv_path, dataset_path, all_metadata, process_df_func, ch
     else:
         # 小さなファイルは一度に処理（3行目以降がデータ）
         df = pd.read_csv(csv_path, skiprows=3, header=None, names=custom_headers, encoding=encoding, index_col=False)
-        processed_df = process_df_func(df, file_metadata)
+        processed_df = process_df_wrapper(df, file_metadata)
         
         # PyArrowテーブルに変換
         table = pa.Table.from_pandas(processed_df)
@@ -281,6 +386,9 @@ def process_single_csv(csv_path, dataset_path, all_metadata, process_df_func, ch
             partition_cols=partition_cols,
             existing_data_behavior='delete_matching'
         )
+    
+    # 処理したデータ行数を更新
+    return len(df) if 'df' in locals() else chunk_size  # 近似値
 
 def query_parquet_with_duckdb(dataset_path, sql_query):
     """DuckDBを使用してParquetデータセットにクエリを実行する"""
