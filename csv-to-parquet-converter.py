@@ -7,15 +7,18 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import re
 from datetime import datetime
+import json
 
 def convert_csvs_to_parquet(
     source_dir, 
     output_dir, 
+    dataset_name="sensor_data",
     name_patterns=None, 
     chunk_size=100000
 ):
     """
-    特殊な3行ヘッダー構造のCSVファイル（通常のCSVとZIP圧縮されたCSV）をParquetに変換する
+    特殊な3行ヘッダー構造のCSVファイル（通常のCSVとZIP圧縮されたCSV）を
+    単一のパーティションParquetデータセットに変換する
     
     Parameters:
     -----------
@@ -23,17 +26,62 @@ def convert_csvs_to_parquet(
         CSVファイルが格納されているディレクトリ
     output_dir : str
         Parquetファイルを出力するディレクトリ
+    dataset_name : str
+        作成するデータセットの名前
     name_patterns : list, optional
-        CSVファイル名に含まれるべき文字列パターンのリスト (例: ['sales', 'report'])
+        CSVファイル名に含まれるべき文字列パターンのリスト (例: ['sensor', 'temperature'])
     chunk_size : int, optional
         大きなCSVファイルを処理する際のチャンクサイズ
     """
     # 出力ディレクトリが存在しない場合は作成
     os.makedirs(output_dir, exist_ok=True)
     
+    # データセットのルートパス
+    dataset_path = os.path.join(output_dir, dataset_name)
+    os.makedirs(dataset_path, exist_ok=True)
+    
+    # メタデータを保存するための辞書
+    all_metadata = {
+        'files': [],
+        'created_at': datetime.now().isoformat(),
+        'sensor_info': {}
+    }
+    
     # 処理したファイル数を追跡
     processed_files = 0
     skipped_files = 0
+    total_rows = 0
+    
+    # 処理関数
+    def process_df(df, file_metadata):
+        nonlocal total_rows
+        
+        # 1列目を日時型に変換
+        try:
+            df['timestamp'] = pd.to_datetime(df['timestamp'])
+            
+            # パーティショニング用の列を作成
+            df['year'] = df['timestamp'].dt.year
+            df['month'] = df['timestamp'].dt.month
+            df['day'] = df['timestamp'].dt.day
+            df['hour'] = df['timestamp'].dt.hour
+            
+            # ファイル情報カラムを追加（追跡用）
+            df['source_file'] = file_metadata['original_file']
+            
+            # データ型のチェックと変換（数値型に変換）
+            for col in df.columns:
+                if col not in ['timestamp', 'year', 'month', 'day', 'hour', 'source_file']:
+                    try:
+                        df[col] = pd.to_numeric(df[col], errors='coerce')
+                    except:
+                        pass
+            
+            total_rows += len(df)
+            return df
+        except Exception as e:
+            print(f"データ処理中にエラーが発生しました: {str(e)}")
+            raise
     
     # 通常のCSVファイルを処理
     csv_files = glob.glob(os.path.join(source_dir, "*.csv"))
@@ -48,7 +96,8 @@ def convert_csvs_to_parquet(
             
         print(f"処理中: {file_name}")
         try:
-            process_csv_file(csv_file, output_dir, chunk_size)
+            # 単一ファイルを処理してパーティションに追加
+            process_single_csv(csv_file, dataset_path, all_metadata, process_df, chunk_size)
             processed_files += 1
         except Exception as e:
             print(f"エラー: {file_name} の処理中に問題が発生しました - {str(e)}")
@@ -73,23 +122,29 @@ def convert_csvs_to_parquet(
                     try:
                         # 一時ディレクトリにCSVを展開
                         with tempfile.TemporaryDirectory() as temp_dir:
-                            temp_csv = os.path.join(temp_dir, os.path.basename(zip_info.filename))
-                            zip_ref.extract(zip_info.filename, temp_dir)
                             extracted_path = os.path.join(temp_dir, zip_info.filename)
-                            process_csv_file(extracted_path, output_dir, chunk_size)
+                            zip_ref.extract(zip_info.filename, temp_dir)
+                            # 単一ファイルを処理してパーティションに追加
+                            process_single_csv(extracted_path, dataset_path, all_metadata, process_df, chunk_size)
                             processed_files += 1
                     except Exception as e:
                         print(f"エラー: {zip_info.filename} の処理中に問題が発生しました - {str(e)}")
                         skipped_files += 1
     
-    print(f"処理完了: {processed_files}ファイルを処理しました。{skipped_files}ファイルがスキップされました。")
+    # 統合メタデータの保存
+    metadata_path = os.path.join(output_dir, f"{dataset_name}_metadata.json")
+    with open(metadata_path, 'w', encoding='utf-8') as f:
+        json.dump(all_metadata, f, ensure_ascii=False, indent=2)
+    
+    print(f"処理完了: {processed_files}ファイルから{total_rows}行のデータを処理しました。{skipped_files}ファイルがスキップされました。")
+    print(f"データは {dataset_path} に保存され、メタデータは {metadata_path} に保存されました。")
 
-def process_csv_file(csv_path, output_dir, chunk_size=100000):
+def process_single_csv(csv_path, dataset_path, all_metadata, process_df_func, chunk_size=100000):
     """
-    センサーデータの特殊なCSV形式（3行ヘッダー）を処理してParquetに変換する
+    センサーデータの特殊なCSV形式（3行ヘッダー）を処理し、
+    統合Parquetデータセットにデータを追加する
     """
     file_name = os.path.basename(csv_path)
-    base_name = os.path.splitext(file_name)[0]
     
     # ヘッダー行を個別に読み込む
     sensor_points = pd.read_csv(csv_path, nrows=1, header=None).iloc[0].tolist()
@@ -106,100 +161,80 @@ def process_csv_file(csv_path, output_dir, chunk_size=100000):
         header = re.sub(r'[^\w]', '_', header)
         custom_headers.append(header)
     
-    # メタデータを保存（単位情報など、後で参照できるように）
-    metadata = {
+    # メタデータを作成
+    file_metadata = {
+        'original_file': file_name,
         'sensor_points': sensor_points,
         'sensor_names': sensor_names,
         'units': units,
-        'original_file': file_name,
-        'created_at': datetime.now().isoformat()
+        'processed_at': datetime.now().isoformat()
     }
     
-    # メタデータをJSONとして保存
-    import json
-    metadata_path = os.path.join(output_dir, f"{base_name}_metadata.json")
-    with open(metadata_path, 'w', encoding='utf-8') as f:
-        json.dump(metadata, f, ensure_ascii=False, indent=2)
+    # センサー情報をメタデータに追加
+    for i in range(1, len(sensor_points)):
+        sensor_id = sensor_points[i]
+        if sensor_id not in all_metadata['sensor_info']:
+            all_metadata['sensor_info'][sensor_id] = {
+                'name': sensor_names[i],
+                'unit': units[i]
+            }
+    
+    # ファイルメタデータを全体メタデータに追加
+    all_metadata['files'].append(file_metadata)
     
     # ファイルサイズの確認
     file_size = os.path.getsize(csv_path)
     
-    # 現在の日時をパーティション情報として取得
-    now = datetime.now()
-    
-    # 処理関数
-    def process_chunk(df):
-        # 1列目を日時型に変換
-        try:
-            df['timestamp'] = pd.to_datetime(df['timestamp'])
-            
-            # パーティショニング用の列を作成
-            df['year'] = df['timestamp'].dt.year
-            df['month'] = df['timestamp'].dt.month
-            df['day'] = df['timestamp'].dt.day
-            df['hour'] = df['timestamp'].dt.hour
-            
-            # データ型のチェックと変換（数値型に変換）
-            for col in df.columns:
-                if col not in ['timestamp', 'year', 'month', 'day', 'hour']:
-                    try:
-                        df[col] = pd.to_numeric(df[col], errors='coerce')
-                    except:
-                        pass
-            
-            return df
-        except Exception as e:
-            print(f"データ処理中にエラーが発生しました: {str(e)}")
-            raise
+    # パーティショニング列の定義
+    partition_cols = ['year', 'month']
     
     # 大きなファイルの場合はチャンク処理
     if file_size > 100 * 1024 * 1024:  # 100MB以上
-        for i, chunk in enumerate(pd.read_csv(csv_path, skiprows=3, header=None, names=custom_headers, chunksize=chunk_size)):
-            processed_chunk = process_chunk(chunk)
+        for chunk in pd.read_csv(csv_path, skiprows=3, header=None, names=custom_headers, chunksize=chunk_size):
+            processed_chunk = process_df_func(chunk, file_metadata)
             
-            # パーティショニングして保存
+            # PyArrowテーブルに変換
             table = pa.Table.from_pandas(processed_chunk)
-            output_path = os.path.join(output_dir, base_name)
             
-            # パーティショニング列
-            partition_cols = ['year', 'month']
-            
+            # パーティショニングして追加
             pq.write_to_dataset(
                 table,
-                root_path=output_path,
-                partition_cols=partition_cols
+                root_path=dataset_path,
+                partition_cols=partition_cols,
+                existing_data_behavior='delete_matching'
             )
     else:
         # 小さなファイルは一度に処理（3行目以降がデータ）
         df = pd.read_csv(csv_path, skiprows=3, header=None, names=custom_headers)
-        processed_df = process_chunk(df)
+        processed_df = process_df_func(df, file_metadata)
         
-        # パーティショニングして保存
+        # PyArrowテーブルに変換
         table = pa.Table.from_pandas(processed_df)
-        output_path = os.path.join(output_dir, base_name)
         
-        # パーティショニング列
-        partition_cols = ['year', 'month']
-        
+        # パーティショニングして追加
         pq.write_to_dataset(
             table,
-            root_path=output_path,
-            partition_cols=partition_cols
+            root_path=dataset_path,
+            partition_cols=partition_cols,
+            existing_data_behavior='delete_matching'
         )
 
-def query_parquet_with_duckdb(parquet_dir, sql_query):
-    """DuckDBを使用してParquetデータにクエリを実行する"""
+def query_parquet_with_duckdb(dataset_path, sql_query):
+    """DuckDBを使用してParquetデータセットにクエリを実行する"""
     import duckdb
     
     conn = duckdb.connect(":memory:")
-    result = conn.execute(sql_query.format(parquet_dir=parquet_dir)).fetchdf()
+    result = conn.execute(sql_query.format(dataset_path=dataset_path)).fetchdf()
     return result
 
 # 使用例
 if __name__ == "__main__":
     # 設定
     source_directory = "/path/to/csv_files"
-    parquet_directory = "/path/to/parquet_output"
+    output_directory = "/path/to/parquet_output"
+    
+    # データセット名の設定
+    dataset_name = "sensor_dataset"
     
     # ファイル名に含まれる必要がある文字列パターン
     name_filters = ["sensor", "temperature", "pressure"]
@@ -207,30 +242,57 @@ if __name__ == "__main__":
     # 変換を実行
     convert_csvs_to_parquet(
         source_dir=source_directory,
-        output_dir=parquet_directory,
+        output_dir=output_directory,
+        dataset_name=dataset_name,
         name_patterns=name_filters
     )
     
-    # DuckDBを使用してクエリ例
-    sample_query = """
-    -- センサーデータの時間帯別平均を取得
+    # DuckDBを使用したクエリ例
+    dataset_path = os.path.join(output_directory, dataset_name)
+    
+    # 時間帯別の平均値を取得するクエリ
+    hourly_query = """
     SELECT 
         year,
         month, 
+        day,
         hour,
         AVG("{sensor_column}") as avg_value
-    FROM '{parquet_dir}/*/*.parquet'
+    FROM '{dataset_path}/*/*.parquet'
     WHERE year = 2023 AND month = 3
-    GROUP BY year, month, hour
-    ORDER BY year, month, hour
+    GROUP BY year, month, day, hour
+    ORDER BY year, month, day, hour
+    """
+    
+    # 日別の統計情報を取得するクエリ
+    daily_query = """
+    SELECT 
+        year,
+        month, 
+        day,
+        AVG("{sensor_column}") as avg_value,
+        MIN("{sensor_column}") as min_value,
+        MAX("{sensor_column}") as max_value,
+        COUNT(*) as data_points
+    FROM '{dataset_path}/*/*.parquet'
+    GROUP BY year, month, day
+    ORDER BY year, month, day
     """
     
     # センサー列名を指定
     sensor_column = "ABC123_Temperature"
     
-    # 結果の取得
-    result_df = query_parquet_with_duckdb(
-        parquet_directory, 
-        sample_query.replace("{sensor_column}", sensor_column)
+    # クエリを実行
+    hourly_results = query_parquet_with_duckdb(
+        dataset_path, 
+        hourly_query.replace("{sensor_column}", sensor_column)
     )
-    print(result_df.head())
+    print("時間別平均値:")
+    print(hourly_results.head())
+    
+    daily_results = query_parquet_with_duckdb(
+        dataset_path, 
+        daily_query.replace("{sensor_column}", sensor_column)
+    )
+    print("\n日別統計:")
+    print(daily_results.head())
