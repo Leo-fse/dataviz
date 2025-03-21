@@ -58,6 +58,22 @@ def convert_csvs_to_parquet(
     def process_df(df, file_metadata):
         nonlocal total_rows
         
+        # 処理前のデータフレーム確認
+        print(f"処理前のデータフレーム先頭部分:")
+        print(df.head(2))
+        print(f"データフレーム列名: {df.columns.tolist()}")
+        
+        # データフレームの列数がヘッダー数と一致するか確認
+        if len(df.columns) != len(custom_headers):
+            print(f"警告: カラム数不一致 - データフレーム: {len(df.columns)}, ヘッダー: {len(custom_headers)}")
+            # 必要に応じて修正する（列の追加や削除など）
+        
+        # 最初の列がタイムスタンプであることを確認
+        if 'timestamp' not in df.columns:
+            print("警告: 'timestamp'列がありません。最初の列を'timestamp'として処理します。")
+            # 最初の列をタイムスタンプとして扱う
+            df = df.rename(columns={df.columns[0]: 'timestamp'})
+        
         # 1列目を日時型に変換
         try:
             df['timestamp'] = pd.to_datetime(df['timestamp'])
@@ -150,24 +166,24 @@ def process_single_csv(csv_path, dataset_path, all_metadata, process_df_func, ch
     
     # ヘッダー行を個別に読み込む（エンコーディングを試行）
     try:
-        sensor_points = pd.read_csv(csv_path, nrows=1, header=None, encoding=encoding).iloc[0].tolist()
-        sensor_names = pd.read_csv(csv_path, skiprows=1, nrows=1, header=None, encoding=encoding).iloc[0].tolist()
-        units = pd.read_csv(csv_path, skiprows=2, nrows=1, header=None, encoding=encoding).iloc[0].tolist()
+        sensor_points = pd.read_csv(csv_path, nrows=1, header=None, encoding=encoding, index_col=False).iloc[0].tolist()
+        sensor_names = pd.read_csv(csv_path, skiprows=1, nrows=1, header=None, encoding=encoding, index_col=False).iloc[0].tolist()
+        units = pd.read_csv(csv_path, skiprows=2, nrows=1, header=None, encoding=encoding, index_col=False).iloc[0].tolist()
     except UnicodeDecodeError:
         # UTF-8で失敗した場合、Shift-JISを試す
         print(f"UTF-8でのデコードに失敗しました。Shift-JISを試みます: {os.path.basename(csv_path)}")
         encoding = 'shift-jis'
         try:
-            sensor_points = pd.read_csv(csv_path, nrows=1, header=None, encoding=encoding).iloc[0].tolist()
-            sensor_names = pd.read_csv(csv_path, skiprows=1, nrows=1, header=None, encoding=encoding).iloc[0].tolist()
-            units = pd.read_csv(csv_path, skiprows=2, nrows=1, header=None, encoding=encoding).iloc[0].tolist()
+            sensor_points = pd.read_csv(csv_path, nrows=1, header=None, encoding=encoding, index_col=False).iloc[0].tolist()
+            sensor_names = pd.read_csv(csv_path, skiprows=1, nrows=1, header=None, encoding=encoding, index_col=False).iloc[0].tolist()
+            units = pd.read_csv(csv_path, skiprows=2, nrows=1, header=None, encoding=encoding, index_col=False).iloc[0].tolist()
         except:
             # CP932 (Windows日本語)も試す
             print(f"Shift-JISでも失敗しました。CP932を試みます: {os.path.basename(csv_path)}")
             encoding = 'cp932'
-            sensor_points = pd.read_csv(csv_path, nrows=1, header=None, encoding=encoding).iloc[0].tolist()
-            sensor_names = pd.read_csv(csv_path, skiprows=1, nrows=1, header=None, encoding=encoding).iloc[0].tolist()
-            units = pd.read_csv(csv_path, skiprows=2, nrows=1, header=None, encoding=encoding).iloc[0].tolist()
+            sensor_points = pd.read_csv(csv_path, nrows=1, header=None, encoding=encoding, index_col=False).iloc[0].tolist()
+            sensor_names = pd.read_csv(csv_path, skiprows=1, nrows=1, header=None, encoding=encoding, index_col=False).iloc[0].tolist()
+            units = pd.read_csv(csv_path, skiprows=2, nrows=1, header=None, encoding=encoding, index_col=False).iloc[0].tolist()
     
     # カスタムヘッダーを作成
     # 1列目は日時列で名前がないため、'timestamp'という名前を付ける
@@ -237,7 +253,7 @@ def process_single_csv(csv_path, dataset_path, all_metadata, process_df_func, ch
     
     # 大きなファイルの場合はチャンク処理
     if file_size > 100 * 1024 * 1024:  # 100MB以上
-        for chunk in pd.read_csv(csv_path, skiprows=3, header=None, names=custom_headers, encoding=encoding, chunksize=chunk_size):
+        for chunk in pd.read_csv(csv_path, skiprows=3, header=None, names=custom_headers, encoding=encoding, index_col=False, chunksize=chunk_size):
             processed_chunk = process_df_func(chunk, file_metadata)
             
             # PyArrowテーブルに変換
@@ -252,7 +268,7 @@ def process_single_csv(csv_path, dataset_path, all_metadata, process_df_func, ch
             )
     else:
         # 小さなファイルは一度に処理（3行目以降がデータ）
-        df = pd.read_csv(csv_path, skiprows=3, header=None, names=custom_headers, encoding=encoding)
+        df = pd.read_csv(csv_path, skiprows=3, header=None, names=custom_headers, encoding=encoding, index_col=False)
         processed_df = process_df_func(df, file_metadata)
         
         # PyArrowテーブルに変換
