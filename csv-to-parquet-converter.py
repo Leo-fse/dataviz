@@ -14,7 +14,9 @@ def convert_csvs_to_parquet(
     output_dir, 
     dataset_name="sensor_data",
     name_patterns=None, 
-    chunk_size=100000
+    chunk_size=100000,
+    encoding='utf-8',
+    date_format=None
 ):
     """
     特殊な3行ヘッダー構造のCSVファイル（通常のCSVとZIP圧縮されたCSV）を
@@ -97,7 +99,7 @@ def convert_csvs_to_parquet(
         print(f"処理中: {file_name}")
         try:
             # 単一ファイルを処理してパーティションに追加
-            process_single_csv(csv_file, dataset_path, all_metadata, process_df, chunk_size)
+            process_single_csv(csv_file, dataset_path, all_metadata, process_df, chunk_size, encoding=encoding)
             processed_files += 1
         except Exception as e:
             print(f"エラー: {file_name} の処理中に問題が発生しました - {str(e)}")
@@ -125,7 +127,7 @@ def convert_csvs_to_parquet(
                             extracted_path = os.path.join(temp_dir, zip_info.filename)
                             zip_ref.extract(zip_info.filename, temp_dir)
                             # 単一ファイルを処理してパーティションに追加
-                            process_single_csv(extracted_path, dataset_path, all_metadata, process_df, chunk_size)
+                            process_single_csv(extracted_path, dataset_path, all_metadata, process_df, chunk_size, encoding=encoding)
                             processed_files += 1
                     except Exception as e:
                         print(f"エラー: {zip_info.filename} の処理中に問題が発生しました - {str(e)}")
@@ -139,17 +141,33 @@ def convert_csvs_to_parquet(
     print(f"処理完了: {processed_files}ファイルから{total_rows}行のデータを処理しました。{skipped_files}ファイルがスキップされました。")
     print(f"データは {dataset_path} に保存され、メタデータは {metadata_path} に保存されました。")
 
-def process_single_csv(csv_path, dataset_path, all_metadata, process_df_func, chunk_size=100000):
+def process_single_csv(csv_path, dataset_path, all_metadata, process_df_func, chunk_size=100000, encoding='utf-8'):
     """
     センサーデータの特殊なCSV形式（3行ヘッダー）を処理し、
     統合Parquetデータセットにデータを追加する
     """
     file_name = os.path.basename(csv_path)
     
-    # ヘッダー行を個別に読み込む
-    sensor_points = pd.read_csv(csv_path, nrows=1, header=None).iloc[0].tolist()
-    sensor_names = pd.read_csv(csv_path, skiprows=1, nrows=1, header=None).iloc[0].tolist()
-    units = pd.read_csv(csv_path, skiprows=2, nrows=1, header=None).iloc[0].tolist()
+    # ヘッダー行を個別に読み込む（エンコーディングを試行）
+    try:
+        sensor_points = pd.read_csv(csv_path, nrows=1, header=None, encoding=encoding).iloc[0].tolist()
+        sensor_names = pd.read_csv(csv_path, skiprows=1, nrows=1, header=None, encoding=encoding).iloc[0].tolist()
+        units = pd.read_csv(csv_path, skiprows=2, nrows=1, header=None, encoding=encoding).iloc[0].tolist()
+    except UnicodeDecodeError:
+        # UTF-8で失敗した場合、Shift-JISを試す
+        print(f"UTF-8でのデコードに失敗しました。Shift-JISを試みます: {os.path.basename(csv_path)}")
+        encoding = 'shift-jis'
+        try:
+            sensor_points = pd.read_csv(csv_path, nrows=1, header=None, encoding=encoding).iloc[0].tolist()
+            sensor_names = pd.read_csv(csv_path, skiprows=1, nrows=1, header=None, encoding=encoding).iloc[0].tolist()
+            units = pd.read_csv(csv_path, skiprows=2, nrows=1, header=None, encoding=encoding).iloc[0].tolist()
+        except:
+            # CP932 (Windows日本語)も試す
+            print(f"Shift-JISでも失敗しました。CP932を試みます: {os.path.basename(csv_path)}")
+            encoding = 'cp932'
+            sensor_points = pd.read_csv(csv_path, nrows=1, header=None, encoding=encoding).iloc[0].tolist()
+            sensor_names = pd.read_csv(csv_path, skiprows=1, nrows=1, header=None, encoding=encoding).iloc[0].tolist()
+            units = pd.read_csv(csv_path, skiprows=2, nrows=1, header=None, encoding=encoding).iloc[0].tolist()
     
     # カスタムヘッダーを作成
     # 1列目は日時列で名前がないため、'timestamp'という名前を付ける
@@ -190,7 +208,7 @@ def process_single_csv(csv_path, dataset_path, all_metadata, process_df_func, ch
     
     # 大きなファイルの場合はチャンク処理
     if file_size > 100 * 1024 * 1024:  # 100MB以上
-        for chunk in pd.read_csv(csv_path, skiprows=3, header=None, names=custom_headers, chunksize=chunk_size):
+        for chunk in pd.read_csv(csv_path, skiprows=3, header=None, names=custom_headers, encoding=encoding, chunksize=chunk_size):
             processed_chunk = process_df_func(chunk, file_metadata)
             
             # PyArrowテーブルに変換
@@ -205,7 +223,7 @@ def process_single_csv(csv_path, dataset_path, all_metadata, process_df_func, ch
             )
     else:
         # 小さなファイルは一度に処理（3行目以降がデータ）
-        df = pd.read_csv(csv_path, skiprows=3, header=None, names=custom_headers)
+        df = pd.read_csv(csv_path, skiprows=3, header=None, names=custom_headers, encoding=encoding)
         processed_df = process_df_func(df, file_metadata)
         
         # PyArrowテーブルに変換
@@ -244,7 +262,9 @@ if __name__ == "__main__":
         source_dir=source_directory,
         output_dir=output_directory,
         dataset_name=dataset_name,
-        name_patterns=name_filters
+        name_patterns=name_filters,
+        encoding='shift-jis',  # 日本語環境ではShift-JISが一般的
+        date_format='%Y/%m/%d %H:%M:%S'  # 2024/11/21 0:00:00 形式を指定
     )
     
     # DuckDBを使用したクエリ例
